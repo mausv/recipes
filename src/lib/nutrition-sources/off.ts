@@ -8,7 +8,7 @@ const nutrient = z.number().nullish().catch(null)
 const offProduct = z.object({
   code: z.string(),
   product_name: z.string().optional(),
-  brands: z.string().optional(),
+  brands: z.union([z.string(), z.array(z.string())]).optional(),
   nutriments: z
     .object({
       'energy-kcal_100g': nutrient,
@@ -20,7 +20,7 @@ const offProduct = z.object({
     .optional(),
 })
 
-const offResponse = z.object({ products: z.array(offProduct) })
+const offResponse = z.object({ hits: z.array(offProduct) })
 
 export type OffProduct = z.output<typeof offProduct>
 
@@ -37,7 +37,7 @@ export function mapOffProduct({
     source: 'off',
     sourceId: code,
     name,
-    brand: brands?.split(',')[0].trim() || null,
+    brand: [brands ?? []].flat().join(',').split(',')[0].trim() || null,
     per100g: {
       kcal,
       protein: n?.proteins_100g ?? 0,
@@ -49,17 +49,14 @@ export function mapOffProduct({
 }
 
 export async function searchOff(q: string, signal: AbortSignal) {
-  const url = new URL('https://world.openfoodfacts.org/cgi/search.pl')
+  const url = new URL('https://search.openfoodfacts.org/search')
   url.search = new URLSearchParams({
-    search_terms: q,
-    search_simple: '1',
-    action: 'process',
-    json: '1',
+    q,
     page_size: '10',
     fields: 'code,product_name,brands,nutriments',
   }).toString()
   const res = await fetch(url, { signal, headers: { 'User-Agent': OFF_USER_AGENT } })
   if (!res.ok) throw new Error(`Open Food Facts responded ${res.status}`)
-  const { products } = offResponse.parse(await res.json())
-  return products.map(mapOffProduct).filter((p) => p !== null)
+  const { hits } = offResponse.parse(await res.json())
+  return hits.map(mapOffProduct).filter((p) => p !== null)
 }

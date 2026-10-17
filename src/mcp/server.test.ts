@@ -400,7 +400,7 @@ describe('mcp server', () => {
     vi.stubEnv('USDA_API_KEY', '')
     const fetch = vi.fn().mockResolvedValue(
       Response.json({
-        products: [
+        hits: [
           {
             code: '123',
             product_name: 'Rolled oats',
@@ -427,7 +427,7 @@ describe('mcp server', () => {
         },
       ],
     })
-    expect(String(fetch.mock.calls[0][0])).toContain('search_terms=oats')
+    expect(String(fetch.mock.calls[0][0])).toContain('q=oats')
     vi.unstubAllGlobals()
   })
 })

@@ -80,44 +80,49 @@ describe('searchOff', () => {
 
   const signal = new AbortController().signal
 
-  it('queries the Open Food Facts search endpoint with the search terms', async () => {
-    const fetch = stubFetch({ products: [] })
+  it('queries the Open Food Facts search service with the search terms', async () => {
+    const fetch = stubFetch({ hits: [] })
     await searchOff('peanut butter', signal)
     const url = fetch.mock.calls[0][0]
-    expect(url.origin + url.pathname).toBe('https://world.openfoodfacts.org/cgi/search.pl')
-    expect(url.searchParams.get('search_terms')).toBe('peanut butter')
+    expect(url.origin + url.pathname).toBe('https://search.openfoodfacts.org/search')
+    expect(url.searchParams.get('q')).toBe('peanut butter')
   })
 
-  it('asks for JSON, ten results and only the needed fields', async () => {
-    const fetch = stubFetch({ products: [] })
+  it('asks for ten results and only the needed fields', async () => {
+    const fetch = stubFetch({ hits: [] })
     await searchOff('oats', signal)
     const params = fetch.mock.calls[0][0].searchParams
-    expect(params.get('json')).toBe('1')
     expect(params.get('page_size')).toBe('10')
     expect(params.get('fields')).toBe('code,product_name,brands,nutriments')
   })
 
+  it('takes the first brand when brands come as a list', async () => {
+    stubFetch({ hits: [{ ...nutella, brands: ['Ferrero', ' Nutella'] }] })
+    const [result] = await searchOff('nutella', signal)
+    expect(result.brand).toBe('Ferrero')
+  })
+
   it('sends a User-Agent header', async () => {
-    const fetch = stubFetch({ products: [] })
+    const fetch = stubFetch({ hits: [] })
     await searchOff('oats', signal)
     expect(fetch.mock.calls[0][1]?.headers).toEqual({ 'User-Agent': OFF_USER_AGENT })
   })
 
   it('passes the abort signal to fetch', async () => {
-    const fetch = stubFetch({ products: [] })
+    const fetch = stubFetch({ hits: [] })
     await searchOff('oats', signal)
     expect(fetch.mock.calls[0][1]?.signal).toBe(signal)
   })
 
   it('returns mapped products and drops unusable ones', async () => {
-    stubFetch({ products: [nutella, { code: '1', product_name: 'Mystery' }] })
+    stubFetch({ hits: [nutella, { code: '1', product_name: 'Mystery' }] })
     const results = await searchOff('nutella', signal)
     expect(results.map((r) => r.name)).toEqual(['Nutella'])
   })
 
   it('treats a non-numeric nutrient as missing', async () => {
     stubFetch({
-      products: [{ ...nutella, nutriments: { ...nutella.nutriments, fiber_100g: 'n/a' } }],
+      hits: [{ ...nutella, nutriments: { ...nutella.nutriments, fiber_100g: 'n/a' } }],
     })
     const [result] = await searchOff('nutella', signal)
     expect(result.per100g.fiber).toBeNull()
