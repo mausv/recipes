@@ -7,6 +7,8 @@ const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const ADMIN_ONLY = 'Only group admins can do that'
 const INVALID_INVITE = 'This invite link is invalid or has expired'
 
+const memberCount = sql<number>`(select count(*) from ${groupMember} m where m.group_id = ${group.id})`
+
 function hashToken(token: string) {
   return createHash('sha256').update(token).digest('hex')
 }
@@ -29,7 +31,7 @@ export function listGroups(userId: string) {
       id: group.id,
       name: group.name,
       role: groupMember.role,
-      memberCount: sql<number>`(select count(*) from ${groupMember} m where m.group_id = ${group.id})`,
+      memberCount,
     })
     .from(groupMember)
     .innerJoin(group, eq(group.id, groupMember.groupId))
@@ -99,11 +101,27 @@ export function leaveGroup(userId: string, groupId: string) {
     return {}
   }
   if (role === 'admin' && members.filter((m) => m.role === 'admin').length === 1) {
-    return { error: 'You’re the only admin. Remove the other members before leaving.' }
+    return { error: 'You’re the only admin. Make another member an admin before leaving.' }
   }
   db.delete(groupMember)
     .where(and(eq(groupMember.userId, userId), eq(groupMember.groupId, groupId)))
     .run()
+  return {}
+}
+
+export function promoteMember(groupId: string, actorId: string, userId: string) {
+  if (!isAdmin(actorId, groupId)) return { error: ADMIN_ONLY }
+  const { changes } = db
+    .update(groupMember)
+    .set({ role: 'admin' })
+    .where(and(eq(groupMember.userId, userId), eq(groupMember.groupId, groupId)))
+    .run()
+  return changes ? {} : { error: 'Member not found' }
+}
+
+export function deleteGroup(groupId: string, actorId: string) {
+  if (!isAdmin(actorId, groupId)) return { error: ADMIN_ONLY }
+  db.delete(group).where(eq(group.id, groupId)).run()
   return {}
 }
 
@@ -168,9 +186,15 @@ export function revokeInvite(userId: string, inviteId: string) {
 
 export function getInviteGroup(token: string) {
   return db
-    .select({ id: group.id, name: group.name })
+    .select({
+      id: group.id,
+      name: group.name,
+      invitedBy: user.name,
+      memberCount,
+    })
     .from(groupInvite)
     .innerJoin(group, eq(group.id, groupInvite.groupId))
+    .innerJoin(user, eq(user.id, groupInvite.createdById))
     .where(
       and(
         eq(groupInvite.tokenHash, hashToken(token)),
@@ -188,5 +212,5 @@ export function acceptInvite(token: string, userId: string) {
     .values({ groupId: found.id, userId, role: 'member' })
     .onConflictDoNothing()
     .run()
-  return { group: found }
+  return { group: { id: found.id, name: found.name } }
 }

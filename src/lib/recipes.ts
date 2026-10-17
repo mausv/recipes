@@ -114,10 +114,18 @@ export function listRecipes({
     .all()
 }
 
-export function listTags({ userId, groupId }: { userId: string; groupId: string }) {
+export function listTags({
+  userId,
+  groupId,
+  scope = 'all',
+}: {
+  userId: string
+  groupId: string
+  scope?: RecipeScope
+}) {
   return db
     .all<{ tag: string }>(
-      sql`select distinct value as tag from ${recipe}, json_each(${recipe.tags}) where ${scopeFilter(userId, groupId, 'all')} order by value`
+      sql`select distinct value as tag from ${recipe}, json_each(${recipe.tags}) where ${scopeFilter(userId, groupId, scope)} order by value`
     )
     .map((row) => row.tag)
 }

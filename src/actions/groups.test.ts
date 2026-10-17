@@ -15,7 +15,9 @@ const {
   acceptInvite,
   createGroup,
   createInvite,
+  deleteGroup,
   leaveGroup,
+  promoteMember,
   removeMember,
   renameGroup,
   revokeInvite,
@@ -142,6 +144,47 @@ describe('removeMember', () => {
   })
 })
 
+describe('promoteMember', () => {
+  it('makes the member an admin', async () => {
+    const home = insertGroup('Home', [ana.id, ben.id])
+    expect(await promoteMember(home.id, ben.id)).toEqual({})
+    expect(groups.isAdmin(ben.id, home.id)).toBe(true)
+  })
+
+  it('revalidates the group pages', async () => {
+    const home = insertGroup('Home', [ana.id, ben.id])
+    await promoteMember(home.id, ben.id)
+    expect(revalidatePath).toHaveBeenCalledWith('/groups', 'layout')
+  })
+
+  it('returns the lib error for a member', async () => {
+    const home = insertGroup('Home', [ben.id, ana.id])
+    expect(await promoteMember(home.id, ben.id)).toEqual({
+      error: 'Only group admins can do that',
+    })
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+})
+
+describe('deleteGroup', () => {
+  it('deletes the group', async () => {
+    const home = insertGroup('Home', [ana.id, ben.id])
+    expect(await deleteGroup(home.id)).toEqual({})
+    expect(groups.getGroup(home.id)).toBeUndefined()
+  })
+
+  it('revalidates every page', async () => {
+    await deleteGroup(insertGroup('Home', [ana.id]).id)
+    expect(revalidatePath).toHaveBeenCalledWith('/', 'layout')
+  })
+
+  it('returns the lib error for a member', async () => {
+    const home = insertGroup('Home', [ben.id, ana.id])
+    expect(await deleteGroup(home.id)).toEqual({ error: 'Only group admins can do that' })
+    expect(groups.getGroup(home.id)).toBeDefined()
+  })
+})
+
 describe('acceptInvite', () => {
   it('joins the group and makes it active', async () => {
     const home = insertGroup('Home', [ben.id])
@@ -150,6 +193,14 @@ describe('acceptInvite', () => {
     vi.mocked(requireUser).mockResolvedValue(ana)
     expect(await acceptInvite(token)).toEqual({ groupId: home.id })
     expect(groups.isMember(ana.id, home.id)).toBe(true)
+    expect(setCookie).toHaveBeenCalledWith('group', home.id, expect.anything())
+  })
+
+  it('makes the group active for someone already in it', async () => {
+    const home = insertGroup('Home', [ana.id])
+    const token = tokenOf(await inviteUrl(home.id))
+    expect(await acceptInvite(token)).toEqual({ groupId: home.id })
+    expect(groups.isAdmin(ana.id, home.id)).toBe(true)
     expect(setCookie).toHaveBeenCalledWith('group', home.id, expect.anything())
   })
 

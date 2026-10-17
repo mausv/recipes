@@ -47,14 +47,14 @@ export async function createInvite(groupId: string) {
   const user = await requireUser()
   const result = groups.createInvite(groupId, user.id)
   if ('error' in result) return { error: result.error }
-  revalidatePath('/settings')
+  revalidatePath('/groups', 'layout')
   return { url: new URL(`/join/${result.token}`, process.env.BETTER_AUTH_URL).href }
 }
 
 export async function revokeInvite(inviteId: string) {
   const user = await requireUser()
   const result = groups.revokeInvite(user.id, inviteId)
-  if (result.error === undefined) revalidatePath('/settings')
+  if (result.error === undefined) revalidatePath('/groups', 'layout')
   return result
 }
 
@@ -68,7 +68,21 @@ export async function leaveGroup(groupId: string) {
 export async function removeMember(groupId: string, userId: string) {
   const user = await requireUser()
   const result = groups.removeMember(user.id, groupId, userId)
-  if (result.error === undefined) revalidatePath('/settings')
+  if (result.error === undefined) revalidatePath('/groups', 'layout')
+  return result
+}
+
+export async function promoteMember(groupId: string, userId: string) {
+  const user = await requireUser()
+  const result = groups.promoteMember(groupId, user.id, userId)
+  if (result.error === undefined) revalidatePath('/groups', 'layout')
+  return result
+}
+
+export async function deleteGroup(groupId: string) {
+  const user = await requireUser()
+  const result = groups.deleteGroup(groupId, user.id)
+  if (result.error === undefined) revalidatePath('/', 'layout')
   return result
 }
 

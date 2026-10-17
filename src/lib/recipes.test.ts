@@ -211,9 +211,13 @@ describe('listRecipes scopes', () => {
   const bens = insertRecipe(ben.id, { title: 'Ben’s' })
   const bensElsewhere = insertRecipe(ben.id, { title: 'Ben’s elsewhere' })
   const bensPrivate = insertRecipe(ben.id, { title: 'Ben’s private' })
+  const zoe = insertUser()
+  const foreign = insertGroup('Foreign', [ben.id, zoe.id])
+  const bensForeign = insertRecipe(ben.id, { title: 'Ben’s foreign' })
   shareInto(ownShared.id, kitchen.id, ana.id)
   shareInto(bens.id, kitchen.id, ben.id)
   shareInto(bensElsewhere.id, other.id, ben.id)
+  shareInto(bensForeign.id, foreign.id, ben.id)
 
   function titles(scope: 'all' | 'mine' | 'group') {
     return listRecipes({ userId: ana.id, groupId: kitchen.id, scope })
@@ -237,6 +241,13 @@ describe('listRecipes scopes', () => {
     expect(titles('all')).not.toContain(bensPrivate.title)
     expect(titles('all')).not.toContain(bensElsewhere.title)
   })
+
+  it.each(['all', 'mine', 'group'] as const)(
+    'hides a recipe shared into a group the user is not in for %s',
+    (scope) => {
+      expect(titles(scope)).not.toContain(bensForeign.title)
+    }
+  )
 })
 
 describe('listTags', () => {
@@ -260,6 +271,37 @@ describe('listTags', () => {
 
   it('returns a tag used by several recipes once', () => {
     expect(tags().filter((t) => t === 'apple')).toHaveLength(1)
+  })
+})
+
+describe('listTags scopes', () => {
+  const ana = insertUser()
+  const ben = insertUser()
+  const kitchen = insertGroup('Kitchen', [ana.id, ben.id])
+  const foreign = insertGroup('Foreign', [ben.id])
+  insertRecipe(ana.id, { tags: ['own'] })
+  shareInto(insertRecipe(ana.id, { tags: ['own-shared'] }).id, kitchen.id, ana.id)
+  shareInto(insertRecipe(ben.id, { tags: ['bens'] }).id, kitchen.id, ben.id)
+  shareInto(insertRecipe(ben.id, { tags: ['foreign'] }).id, foreign.id, ben.id)
+
+  function tags(scope: 'all' | 'mine' | 'group') {
+    return listTags({ userId: ana.id, groupId: kitchen.id, scope })
+  }
+
+  it('includes own and group tags for all', () => {
+    expect(tags('all')).toEqual(['bens', 'own', 'own-shared'])
+  })
+
+  it('includes only tags of own recipes for mine', () => {
+    expect(tags('mine')).toEqual(['own', 'own-shared'])
+  })
+
+  it('includes only tags of recipes shared into the group for group', () => {
+    expect(tags('group')).toEqual(['bens', 'own-shared'])
+  })
+
+  it('defaults to all', () => {
+    expect(listTags({ userId: ana.id, groupId: kitchen.id })).toEqual(tags('all'))
   })
 })
 

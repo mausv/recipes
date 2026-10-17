@@ -1,6 +1,7 @@
 'use client'
 
-import { ChevronsUpDown } from 'lucide-react'
+import { ChevronsUpDown, Settings2 } from 'lucide-react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
 import { toast } from 'sonner'
@@ -10,9 +11,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
@@ -61,6 +64,11 @@ export function GroupSwitcher({
             ))}
           </DropdownMenuRadioGroup>
         </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem render={<Link href="/groups" />}>
+          <Settings2 />
+          Manage groups
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

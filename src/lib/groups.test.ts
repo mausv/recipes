@@ -2,12 +2,14 @@ import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { setupTestDb } from '@/test/db'
 
-const { db, schema, insertUser, insertGroup } = await setupTestDb()
+const { db, schema, insertUser, insertGroup, insertRecipe, insertIngredient, shareInto } =
+  await setupTestDb()
 const {
   acceptInvite,
   createGroup,
   createInvite,
   defaultGroup,
+  deleteGroup,
   getGroup,
   getInviteGroup,
   isAdmin,
@@ -17,6 +19,7 @@ const {
   listInvites,
   listMembers,
   personalGroupName,
+  promoteMember,
   removeMember,
   renameGroup,
   revokeInvite,
@@ -179,6 +182,109 @@ describe('leaveGroup', () => {
   })
 })
 
+describe('promoteMember', () => {
+  it('lets an admin make a member an admin', () => {
+    const ana = insertUser()
+    const ben = insertUser()
+    const home = insertGroup('Home', [ana.id, ben.id])
+    expect(promoteMember(home.id, ana.id, ben.id)).toEqual({})
+    expect(isAdmin(ben.id, home.id)).toBe(true)
+  })
+
+  it('refuses a member', () => {
+    const ana = insertUser()
+    const ben = insertUser()
+    const zoe = insertUser()
+    const home = insertGroup('Home', [ana.id, ben.id, zoe.id])
+    expect(promoteMember(home.id, ben.id, zoe.id)).toEqual({
+      error: 'Only group admins can do that',
+    })
+    expect(isAdmin(zoe.id, home.id)).toBe(false)
+  })
+
+  it('returns an error for someone who is not a member', () => {
+    const ana = insertUser()
+    const home = insertGroup('Home', [ana.id])
+    expect(promoteMember(home.id, ana.id, insertUser().id)).toEqual({
+      error: 'Member not found',
+    })
+  })
+
+  it('lets the promoted member’s former only admin leave', () => {
+    const ana = insertUser()
+    const ben = insertUser()
+    const home = insertGroup('Home', [ana.id, ben.id])
+    promoteMember(home.id, ana.id, ben.id)
+    expect(leaveGroup(ana.id, home.id)).toEqual({})
+  })
+})
+
+describe('deleteGroup', () => {
+  it('lets an admin delete the group', () => {
+    const ana = insertUser()
+    const home = insertGroup('Home', [ana.id, insertUser().id])
+    expect(deleteGroup(home.id, ana.id)).toEqual({})
+    expect(getGroup(home.id)).toBeUndefined()
+  })
+
+  it('refuses a member', () => {
+    const ana = insertUser()
+    const ben = insertUser()
+    const home = insertGroup('Home', [ana.id, ben.id])
+    expect(deleteGroup(home.id, ben.id)).toEqual({ error: 'Only group admins can do that' })
+    expect(getGroup(home.id)).toBeDefined()
+  })
+
+  it('refuses an outsider', () => {
+    const home = insertGroup('Home', [insertUser().id])
+    expect(deleteGroup(home.id, insertUser().id)).toEqual({
+      error: 'Only group admins can do that',
+    })
+  })
+
+  it('removes memberships, invites, shares, shopping, pantry and meal plan', () => {
+    const ana = insertUser()
+    const home = insertGroup('Home', [ana.id])
+    const recipe = insertRecipe(ana.id)
+    const oats = insertIngredient(ana.id)
+    invited(home.id, ana.id)
+    shareInto(recipe.id, home.id, ana.id)
+    db.insert(schema.shoppingItem).values({ groupId: home.id, name: 'Milk' }).run()
+    db.insert(schema.pantryItem).values({ groupId: home.id, ingredientId: oats.id }).run()
+    db.insert(schema.mealPlanEntry)
+      .values({
+        groupId: home.id,
+        date: '2026-10-17',
+        slot: 'dinner',
+        recipeId: recipe.id,
+        position: 0,
+        createdById: ana.id,
+      })
+      .run()
+    deleteGroup(home.id, ana.id)
+    const left = [
+      schema.groupMember,
+      schema.groupInvite,
+      schema.recipeShare,
+      schema.shoppingItem,
+      schema.pantryItem,
+      schema.mealPlanEntry,
+    ].map((table) => db.select().from(table).where(eq(table.groupId, home.id)).all().length)
+    expect(left).toEqual([0, 0, 0, 0, 0, 0])
+  })
+
+  it('keeps the shared recipe itself', () => {
+    const ana = insertUser()
+    const home = insertGroup('Home', [ana.id])
+    const recipe = insertRecipe(ana.id)
+    shareInto(recipe.id, home.id, ana.id)
+    deleteGroup(home.id, ana.id)
+    expect(
+      db.select().from(schema.recipe).where(eq(schema.recipe.id, recipe.id)).get()
+    ).toBeDefined()
+  })
+})
+
 describe('removeMember', () => {
   it('lets an admin remove a member', () => {
     const ana = insertUser()
@@ -214,7 +320,10 @@ describe('createInvite', () => {
   it('returns a token that resolves to the group', () => {
     const ana = insertUser()
     const home = insertGroup('Home', [ana.id])
-    expect(getInviteGroup(invited(home.id, ana.id).token)).toEqual({ id: home.id, name: 'Home' })
+    expect(getInviteGroup(invited(home.id, ana.id).token)).toMatchObject({
+      id: home.id,
+      name: 'Home',
+    })
   })
 
   it('stores only the SHA-256 hash of the token', () => {
@@ -238,6 +347,35 @@ describe('createInvite', () => {
     const ben = insertUser()
     const home = insertGroup('Home', [ana.id, ben.id])
     expect(createInvite(home.id, ben.id)).toEqual({ error: 'Only group admins can do that' })
+  })
+})
+
+describe('getInviteGroup', () => {
+  it('includes who created the invite and the member count', () => {
+    const ana = insertUser()
+    const home = insertGroup('Home', [ana.id, insertUser().id])
+    expect(getInviteGroup(invited(home.id, ana.id).token)).toEqual({
+      id: home.id,
+      name: 'Home',
+      invitedBy: 'Ana',
+      memberCount: 2,
+    })
+  })
+
+  it('returns nothing for a revoked invite', () => {
+    const ana = insertUser()
+    const home = insertGroup('Home', [ana.id])
+    const { id, token } = invited(home.id, ana.id)
+    revokeInvite(ana.id, id)
+    expect(getInviteGroup(token)).toBeUndefined()
+  })
+
+  it('returns nothing for an expired invite', () => {
+    const ana = insertUser()
+    const home = insertGroup('Home', [ana.id])
+    const { id, token } = invited(home.id, ana.id)
+    expireInvite(id)
+    expect(getInviteGroup(token)).toBeUndefined()
   })
 })
 

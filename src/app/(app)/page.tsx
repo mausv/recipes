@@ -6,27 +6,46 @@ import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getActiveGroup } from '@/lib/active-group'
 import { formatKcal } from '@/lib/nutrition'
-import { listRecipes, listTags } from '@/lib/recipes'
+import { listRecipes, listTags, type RecipeScope } from '@/lib/recipes'
 import { requireUser } from '@/lib/session'
 import { cn } from '@/lib/utils'
 
-function href(q: string, tag: string) {
+function href(q: string, tag: string, scope: RecipeScope) {
   const params = new URLSearchParams()
   if (q) params.set('q', q)
   if (tag) params.set('tag', tag)
+  if (scope !== 'all') params.set('scope', scope)
   const search = params.toString()
   return search ? `/?${search}` : '/'
 }
 
+function parseScope(value: string | string[] | undefined): RecipeScope {
+  return value === 'mine' || value === 'group' ? value : 'all'
+}
+
+const linkClass = 'text-primary underline underline-offset-4'
+
 export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
-  const { q, tag } = await searchParams
+  const { q, tag, scope: scopeParam } = await searchParams
   const query = typeof q === 'string' ? q.trim() : ''
   const activeTag = typeof tag === 'string' ? tag : ''
+  const scope = parseScope(scopeParam)
   const user = await requireUser()
-  const { id: groupId } = await getActiveGroup(user.id)
-  const recipes = listRecipes({ userId: user.id, groupId, scope: 'all', q: query, tag: activeTag })
-  const tags = listTags({ userId: user.id, groupId })
+  const group = await getActiveGroup(user.id)
+  const recipes = listRecipes({
+    userId: user.id,
+    groupId: group.id,
+    scope,
+    q: query,
+    tag: activeTag,
+  })
+  const tags = listTags({ userId: user.id, groupId: group.id, scope })
   const filtered = Boolean(query || activeTag)
+  const scopes: { value: RecipeScope; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'mine', label: 'Mine' },
+    { value: 'group', label: `Shared with ${group.name}` },
+  ]
 
   return (
     <div className="space-y-6">
@@ -43,6 +62,7 @@ export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
             className="rounded-full pl-10"
           />
           {activeTag && <input type="hidden" name="tag" value={activeTag} />}
+          {scope !== 'all' && <input type="hidden" name="scope" value={scope} />}
         </Form>
         <Link href="/recipes/new" className={buttonVariants()}>
           <Plus />
@@ -50,12 +70,30 @@ export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
         </Link>
       </div>
 
+      <nav aria-label="Recipe scope" className="flex max-w-full rounded-full bg-secondary p-1">
+        {scopes.map((s) => (
+          <Link
+            key={s.value}
+            href={href(query, activeTag, s.value)}
+            aria-current={s.value === scope ? 'page' : undefined}
+            className={cn(
+              'flex h-11 min-w-0 items-center rounded-full px-4 text-sm transition-colors sm:h-9',
+              s.value === scope
+                ? 'bg-background font-medium text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <span className="truncate">{s.label}</span>
+          </Link>
+        ))}
+      </nav>
+
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {tags.map((t) => (
             <Link
               key={t}
-              href={href(query, t === activeTag ? '' : t)}
+              href={href(query, t === activeTag ? '' : t, scope)}
               aria-current={t === activeTag ? 'true' : undefined}
               className={cn(
                 'relative flex h-9 items-center rounded-full border px-3.5 text-sm transition-colors after:absolute after:-inset-y-1',
@@ -72,21 +110,36 @@ export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
 
       {recipes.length === 0 ? (
         <div className="space-y-2 py-12">
-          <p className="font-heading text-2xl font-medium">
-            {filtered ? 'No recipes match.' : 'No recipes yet.'}
-          </p>
-          <p className="text-muted-foreground">
-            {filtered ? (
-              <Link href="/" className="text-primary underline underline-offset-4">
-                Show all recipes
-              </Link>
-            ) : (
-              <Link href="/recipes/new" className="text-primary underline underline-offset-4">
-                Add the first one
-              </Link>
-            )}
-            .
-          </p>
+          {filtered ? (
+            <>
+              <p className="font-heading text-2xl font-medium">No recipes match.</p>
+              <p className="text-muted-foreground">
+                <Link href={href('', '', scope)} className={linkClass}>
+                  Clear the search
+                </Link>
+                .
+              </p>
+            </>
+          ) : scope === 'group' ? (
+            <>
+              <p className="font-heading text-2xl font-medium">
+                Nothing shared with {group.name} yet.
+              </p>
+              <p className="text-muted-foreground">Share one of yours from its page.</p>
+            </>
+          ) : (
+            <>
+              <p className="font-heading text-2xl font-medium">
+                {scope === 'mine' ? 'You haven’t added a recipe yet.' : 'No recipes yet.'}
+              </p>
+              <p className="text-muted-foreground">
+                <Link href="/recipes/new" className={linkClass}>
+                  Add the first one
+                </Link>
+                .
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <ul className="grid gap-x-6 gap-y-10 pt-2 sm:grid-cols-2 lg:grid-cols-3">

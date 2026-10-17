@@ -1,19 +1,13 @@
+import Link from 'next/link'
 import { listApiKeys } from '@/lib/api-keys'
-import { listGroups, listInvites, listMembers } from '@/lib/groups'
 import { listConnectedClients } from '@/lib/oauth'
 import { requireUser } from '@/lib/session'
 import { ConnectClaudeCard } from './connect-claude-card'
 import { ExportCard } from './export-card'
-import { GroupsCard } from './groups-card'
 import { ImportCard } from './import-card'
 
 export default async function SettingsPage() {
   const user = await requireUser()
-  const groups = listGroups(user.id).map((g) => ({
-    ...g,
-    members: listMembers(g.id),
-    invites: g.role === 'admin' ? listInvites(g.id) : [],
-  }))
 
   return (
     <div className="space-y-10 md:space-y-14">
@@ -25,7 +19,16 @@ export default async function SettingsPage() {
           <p className="text-muted-foreground">{user.email}</p>
         </div>
       </section>
-      <GroupsCard groups={groups} userId={user.id} />
+      <section className="max-w-2xl space-y-1">
+        <h2 className="text-2xl">Groups</h2>
+        <p className="text-muted-foreground">
+          Members and invite links are on the{' '}
+          <Link href="/groups" className="text-primary underline underline-offset-4">
+            groups page
+          </Link>
+          .
+        </p>
+      </section>
       <ConnectClaudeCard
         keys={listApiKeys(user.id)}
         connections={listConnectedClients(user.id)}
