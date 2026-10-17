@@ -1,0 +1,9 @@
+node_modules
+.next
+pnpm-lock.yaml
+src/db/migrations
+src/components/ui
+data
+.claude
+.vitest
+
