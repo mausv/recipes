@@ -65,4 +65,10 @@ describe('addShoppingItem', () => {
     const result = addShoppingItem({ name: 'Soap', quantity: null, unit: null, ingredientId: null })
     expect(result).toEqual({ id: getShoppingList().freeText[0].id })
   })
+
+  it('resolves grams for a linked ingredient measured in cups', () => {
+    const flour = insertIngredient(user.id, { name: 'Flour', density: 0.5 })
+    addShoppingItem({ name: 'Flour', quantity: 2, unit: 'cup', ingredientId: flour.id })
+    expect(getShoppingList().needs).toMatchObject([{ ingredientId: flour.id, neededGrams: 240 }])
+  })
 })

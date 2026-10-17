@@ -2,10 +2,8 @@ import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { ingredient, pantryItem, recipe, recipeIngredient, shoppingItem } from '@/db/schema'
 import { applyPantry, mergeNeeds, scaleIngredientLines } from './shopping'
-import { BASE_UNITS, toGrams } from './units'
+import { isKnownUnit, toGrams } from './units'
 import type { PantryItemData, ShoppingItemData } from './validation/shopping'
-
-const baseUnits: ReadonlySet<string> = new Set(BASE_UNITS)
 
 function findIngredient(id: string) {
   return db.query.ingredient
@@ -89,9 +87,10 @@ export function addShoppingItem({ name, quantity, unit, ingredientId }: Shopping
   }
   const ing = findIngredient(ingredientId)
   if (!ing) return { error: 'Unknown ingredient' }
-  const knownUnit = unit !== null && (baseUnits.has(unit) || ing.units.some((u) => u.name === unit))
   const grams =
-    quantity !== null && unit !== null && knownUnit ? toGrams(quantity, unit, ing) : null
+    quantity !== null && unit !== null && isKnownUnit(unit, ing.units)
+      ? toGrams(quantity, unit, ing)
+      : null
   return db
     .insert(shoppingItem)
     .values({ name: ing.name, ingredientId, grams, quantity, unit })

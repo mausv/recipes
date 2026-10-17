@@ -57,6 +57,10 @@ describe('mcp server', () => {
     expect(client.getInstructions()).toContain('per 100 g')
   })
 
+  it('lists the built-in units in its instructions', () => {
+    expect(client.getInstructions()).toContain('ml, l, tsp, tbsp, cup, fl oz')
+  })
+
   it('lists every tool', async () => {
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
@@ -288,6 +292,19 @@ describe('mcp server', () => {
     expect(await callError('delete_ingredient', { id: ingredientId })).toEqual([
       { type: 'text', text: 'Used by Granola. Remove it from those recipes first.' },
     ])
+  })
+
+  it('resolves grams for a recipe line in a built-in volume unit', async () => {
+    const ingredientId = await create('create_ingredient', { ...oatsInput, units: [] })
+    const id = await create('create_recipe', {
+      title: 'Spiced oats',
+      servings: 1,
+      ingredients: [{ ingredientId, quantity: 3, unit: 'tsp' }],
+      steps: [],
+    })
+    expect(await call('get_recipe', { id })).toMatchObject({
+      ingredients: [{ quantity: 3, unit: 'tsp', grams: expect.closeTo(6) }],
+    })
   })
 
   it('looks up nutrition from Open Food Facts', async () => {

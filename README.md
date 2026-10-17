@@ -2,6 +2,8 @@
 
 Self-hosted recipe app for a household: recipes with nutrition, ingredients, shopping list and pantry. Next.js, SQLite (Drizzle) and Better Auth.
 
+Recipe quantities use built-in units (g, kg, oz, lb; ml, l, tsp, tbsp, cup, fl oz converted via the ingredient's density) or an ingredient's custom units, which override a built-in of the same name.
+
 ## Development
 
 ```sh

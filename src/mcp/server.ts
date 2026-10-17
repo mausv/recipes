@@ -40,9 +40,13 @@ import { addRecipeSchema, pantryItemSchema, shoppingItemSchema } from '@/lib/val
 
 const INSTRUCTIONS = `Household recipe library with nutrition, a shared shopping list and a pantry.
 - Ingredients live in a shared library. Nutrition (kcal, protein, carbs, fat, fiber) is per 100 g. Density is g/ml (default 1). Ingredients can have custom units (e.g. "piece" = 50 g).
-- Recipe ingredient lines reference a library ingredient by id with a quantity and a unit: g, kg, ml, l, or one of that ingredient's custom units. Grams are resolved server-side.
+- Recipe ingredient lines reference a library ingredient by id with a quantity and a unit. Grams are resolved server-side.
+- Built-in units: weight g, kg, oz, lb; volume ml, l, tsp, tbsp, cup, fl oz (converted to grams via the ingredient's density). An ingredient's custom units (matched case-insensitively) override a built-in of the same name, e.g. "cup" = 90 g for oats.
 - To add a recipe with a new ingredient: search_ingredients first; if missing, lookup_nutrition and create_ingredient from a result, then create_recipe.
 - The shopping list merges lines per ingredient and subtracts the pantry.`
+
+const UNIT_DESCRIPTION =
+  'g, kg, oz, lb, ml, l, tsp, tbsp, cup, fl oz, or one of the ingredient’s custom units (a custom unit overrides a built-in of the same name)'
 
 const id = z.string().min(1)
 const ids = z.array(id).min(1)
@@ -54,6 +58,7 @@ const recipeInput = recipeSchema.extend({
   coverImageId: recipeSchema.shape.coverImageId.default(null),
   ingredients: z.array(
     recipeIngredientSchema.extend({
+      unit: recipeIngredientSchema.shape.unit.describe(UNIT_DESCRIPTION),
       groupName: recipeIngredientSchema.shape.groupName.default(null),
     })
   ),
@@ -150,7 +155,7 @@ export function createMcpServer(userId: string) {
     'create_recipe',
     {
       description:
-        'Create a recipe. Ingredient lines need a library ingredientId, a quantity and a unit (g, kg, ml, l or one of the ingredient’s custom units).',
+        'Create a recipe. Ingredient lines need a library ingredientId, a quantity and a unit (built-in or one of the ingredient’s custom units).',
       inputSchema: recipeInput,
     },
     (input) => reply(createRecipe(userId, input))
@@ -275,7 +280,11 @@ export function createMcpServer(userId: string) {
     {
       description:
         'Add an item to the shopping list. Link ingredientId to merge it with recipe needs; otherwise it is free text.',
-      inputSchema: shoppingItemSchema,
+      inputSchema: shoppingItemSchema.extend({
+        unit: shoppingItemSchema.shape.unit.describe(
+          `${UNIT_DESCRIPTION}. Grams are resolved only for a linked ingredient; otherwise any text.`
+        ),
+      }),
     },
     (input) => reply(addShoppingItem(input))
   )

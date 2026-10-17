@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { BASE_UNITS } from '@/lib/units'
 
 const optionalText = z
   .string()
@@ -10,7 +9,7 @@ const optionalText = z
 const macro = (label: string) =>
   z.number(`${label} must be a number`).min(0, `${label} must be ≥ 0`)
 
-const baseUnits: ReadonlySet<string> = new Set(BASE_UNITS)
+const reservedUnits = ['g', 'kg', 'ml', 'l']
 
 export const ingredientUnitSchema = z.object({
   name: z.string().trim().min(1, 'Unit name is required'),
@@ -30,10 +29,10 @@ export const ingredientSchema = z.object({
   sourceId: z.string().nullable(),
   units: z
     .array(ingredientUnitSchema)
-    .refine((units) => units.every((u) => !baseUnits.has(u.name)), {
-      message: `Custom units cannot be named ${BASE_UNITS.join(', ')}`,
+    .refine((units) => units.every((u) => !reservedUnits.includes(u.name.toLowerCase())), {
+      message: `Custom units cannot be named ${reservedUnits.join(', ')}`,
     })
-    .refine((units) => new Set(units.map((u) => u.name)).size === units.length, {
+    .refine((units) => new Set(units.map((u) => u.name.toLowerCase())).size === units.length, {
       message: 'Custom unit names must be unique',
     }),
 })

@@ -76,9 +76,29 @@ describe('ingredientSchema', () => {
     )
   })
 
+  it('rejects a custom unit that shadows a base unit in another case', () => {
+    expect(firstError({ ...oats, units: [{ name: 'KG', grams: 2 }] })).toBe(
+      'Custom units cannot be named g, kg, ml, l'
+    )
+  })
+
+  it('accepts a custom unit that overrides a built-in household measure', () => {
+    expect(
+      ingredientSchema.safeParse({ ...oats, units: [{ name: 'tbsp', grams: 8 }] }).success
+    ).toBe(true)
+  })
+
   it('rejects duplicate custom unit names', () => {
     const units = [
       { name: 'cup', grams: 90 },
+      { name: 'cup', grams: 80 },
+    ]
+    expect(firstError({ ...oats, units })).toBe('Custom unit names must be unique')
+  })
+
+  it('rejects custom unit names that differ only in case', () => {
+    const units = [
+      { name: 'Cup', grams: 90 },
       { name: 'cup', grams: 80 },
     ]
     expect(firstError({ ...oats, units })).toBe('Custom unit names must be unique')

@@ -1,8 +1,9 @@
+import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { setupTestDb } from '@/test/db'
 
 const { db, schema, insertUser, insertIngredient } = await setupTestDb()
-const { getRecipeWithNutrition, listRecipes, listTags } = await import('./recipes')
+const { createRecipe, getRecipeWithNutrition, listRecipes, listTags } = await import('./recipes')
 
 const user = insertUser()
 const oats = insertIngredient(user.id, { name: 'Oats', kcal: 380, fiber: 10 })
@@ -179,5 +180,28 @@ describe('listTags', () => {
   it('sorts the tags alphabetically', () => {
     const tags = listTags()
     expect(tags).toEqual([...tags].sort())
+  })
+})
+
+describe('createRecipe', () => {
+  it('stores grams for a tablespoon line using the ingredient density', () => {
+    const cream = insertIngredient(user.id, { name: 'Cream', density: 1.03 })
+    const result = createRecipe(user.id, {
+      title: 'Coffee',
+      description: null,
+      servings: 1,
+      cookedWeightGrams: null,
+      tags: [],
+      coverImageId: null,
+      ingredients: [{ ingredientId: cream.id, quantity: 2, unit: 'tbsp', groupName: null }],
+      steps: [],
+    })
+    if (result.error !== undefined) throw new Error(result.error)
+    const line = db
+      .select({ grams: schema.recipeIngredient.grams })
+      .from(schema.recipeIngredient)
+      .where(eq(schema.recipeIngredient.recipeId, result.id))
+      .get()
+    expect(line?.grams).toBeCloseTo(30.9)
   })
 })

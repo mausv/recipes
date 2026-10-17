@@ -1,11 +1,9 @@
 import { asc, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { ingredient, ingredientUnit, recipe, recipeIngredient } from '@/db/schema'
-import { BASE_UNITS, toGrams } from './units'
+import { isKnownUnit, toGrams } from './units'
 import { likePattern } from './utils'
 import type { IngredientData } from './validation/ingredient'
-
-const baseUnits: ReadonlySet<string> = new Set(BASE_UNITS)
 
 export function listIngredients(q?: string) {
   return db.query.ingredient
@@ -65,9 +63,7 @@ export function updateIngredient(id: string, { units, ...values }: IngredientDat
     .innerJoin(recipe, eq(recipe.id, recipeIngredient.recipeId))
     .where(eq(recipeIngredient.ingredientId, id))
     .all()
-  const orphaned = lines.find(
-    (l) => !baseUnits.has(l.unit) && !units.some((u) => u.name === l.unit)
-  )
+  const orphaned = lines.find((l) => !isKnownUnit(l.unit, units))
   if (orphaned) {
     return { error: `Unit "${orphaned.unit}" is used by ${orphaned.title}` }
   }

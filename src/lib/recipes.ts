@@ -3,7 +3,7 @@ import { db } from '@/db'
 import { image, ingredient, recipe, recipeIngredient, recipeStep } from '@/db/schema'
 import { deleteImage } from './images'
 import { computeRecipeBreakdown } from './nutrition'
-import { BASE_UNITS, toGrams } from './units'
+import { isKnownUnit, toGrams } from './units'
 import { likePattern } from './utils'
 import type { RecipeData } from './validation/recipe'
 
@@ -69,8 +69,6 @@ export function listTags() {
     .map((row) => row.tag)
 }
 
-const baseUnits: ReadonlySet<string> = new Set(BASE_UNITS)
-
 function resolveGrams(lines: RecipeData['ingredients']) {
   const ids = [...new Set(lines.map((l) => l.ingredientId))]
   const found = ids.length
@@ -84,7 +82,7 @@ function resolveGrams(lines: RecipeData['ingredients']) {
   for (const [position, line] of lines.entries()) {
     const ing = byId.get(line.ingredientId)
     if (!ing) return { error: 'Unknown ingredient' }
-    if (!baseUnits.has(line.unit) && !ing.units.some((u) => u.name === line.unit)) {
+    if (!isKnownUnit(line.unit, ing.units)) {
       return { error: `Unknown unit "${line.unit}" for ${ing.name}` }
     }
     rows.push({ ...line, position, grams: toGrams(line.quantity, line.unit, ing) })

@@ -180,7 +180,7 @@ describe('createRecipe', () => {
 
   it('does not create a recipe when a line is invalid', async () => {
     const before = db.select().from(schema.recipe).all().length
-    const ingredients = [{ ingredientId: oats.id, quantity: 1, unit: 'cup', groupName: null }]
+    const ingredients = [{ ingredientId: oats.id, quantity: 1, unit: 'scoop', groupName: null }]
     await createRecipe(recipeInput({ ingredients }))
     expect(db.select().from(schema.recipe).all()).toHaveLength(before)
   })
@@ -249,9 +249,9 @@ describe('updateRecipe', () => {
 
   it('keeps the old lines when a new line has an unknown unit', async () => {
     const id = await created()
-    const ingredients = [{ ingredientId: egg.id, quantity: 1, unit: 'cup', groupName: null }]
+    const ingredients = [{ ingredientId: egg.id, quantity: 1, unit: 'scoop', groupName: null }]
     expect(await updateRecipe(id, recipeInput({ ingredients }))).toEqual({
-      error: 'Unknown unit "cup" for Egg',
+      error: 'Unknown unit "scoop" for Egg',
     })
     expect(linesOf(id)).toHaveLength(2)
   })
