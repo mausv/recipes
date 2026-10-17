@@ -1,5 +1,7 @@
 import { TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { getActiveGroup } from '@/lib/active-group'
 import { listIngredients } from '@/lib/ingredients'
+import { requireUser } from '@/lib/session'
 import { getShoppingList } from '@/lib/shopping-list'
 import { AddItemForm } from './add-item-form'
 import { PantryList } from './pantry-list'
@@ -12,7 +14,9 @@ const tabClass =
 export default async function ShoppingPage({ searchParams }: PageProps<'/shopping'>) {
   const { tab } = await searchParams
 
-  const { needs, freeText, pantry } = getShoppingList()
+  const user = await requireUser()
+  const { id: groupId } = await getActiveGroup(user.id)
+  const { needs, freeText, pantry } = getShoppingList(groupId)
   const library = listIngredients()
 
   return (

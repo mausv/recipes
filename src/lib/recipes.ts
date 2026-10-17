@@ -1,13 +1,35 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import fs from 'node:fs/promises'
+import { and, asc, desc, eq, exists, inArray, isNull, or, sql } from 'drizzle-orm'
 import { db } from '@/db'
-import { image, ingredient, recipe, recipeIngredient, recipeStep } from '@/db/schema'
-import { deleteImage } from './images'
+import {
+  group,
+  image,
+  ingredient,
+  recipe,
+  recipeIngredient,
+  recipeShare,
+  recipeStep,
+  user,
+} from '@/db/schema'
+import { canEditRecipe, canViewRecipe } from './access'
+import { isMember } from './groups'
+import { deleteImage, imagePath } from './images'
 import { computeRecipeBreakdown } from './nutrition'
 import { isKnownUnit, toGrams } from './units'
 import { likePattern } from './utils'
 import type { RecipeData } from './validation/recipe'
 
-export async function getRecipeWithNutrition(id: string) {
+export type RecipeScope = 'all' | 'mine' | 'group'
+
+function ownerError(userId: string, recipeId: string) {
+  if (canEditRecipe(userId, recipeId)) return undefined
+  return canViewRecipe(userId, recipeId)
+    ? 'Only the owner can change this recipe'
+    : 'Recipe not found'
+}
+
+export async function getRecipeWithNutrition(id: string, userId: string) {
+  if (!canViewRecipe(userId, id)) return null
   const found = await db.query.recipe.findFirst({
     where: eq(recipe.id, id),
     with: {
@@ -31,8 +53,36 @@ export async function getRecipeWithNutrition(id: string) {
   }
 }
 
-export function listRecipes({ q, tag }: { q?: string; tag?: string }) {
-  const filters = []
+function sharedInto(groupId: string) {
+  return exists(
+    db
+      .select({ id: recipeShare.id })
+      .from(recipeShare)
+      .where(and(eq(recipeShare.recipeId, recipe.id), eq(recipeShare.groupId, groupId)))
+  )
+}
+
+function scopeFilter(userId: string, groupId: string, scope: RecipeScope) {
+  const mine = eq(recipe.createdById, userId)
+  if (scope === 'mine') return mine
+  if (scope === 'group') return sharedInto(groupId)
+  return or(mine, sharedInto(groupId))
+}
+
+export function listRecipes({
+  userId,
+  groupId,
+  scope,
+  q,
+  tag,
+}: {
+  userId: string
+  groupId: string
+  scope: RecipeScope
+  q?: string
+  tag?: string
+}) {
+  const filters = [scopeFilter(userId, groupId, scope)]
   if (q) {
     const pattern = likePattern(q)
     filters.push(
@@ -50,9 +100,12 @@ export function listRecipes({ q, tag }: { q?: string; tag?: string }) {
       servings: recipe.servings,
       tags: recipe.tags,
       coverImageId: recipe.coverImageId,
+      createdById: recipe.createdById,
+      ownerName: user.name,
       kcalPerServing: sql<number>`coalesce(sum(${recipeIngredient.grams} * ${ingredient.kcal} / 100), 0) / ${recipe.servings}`,
     })
     .from(recipe)
+    .innerJoin(user, eq(user.id, recipe.createdById))
     .leftJoin(recipeIngredient, eq(recipeIngredient.recipeId, recipe.id))
     .leftJoin(ingredient, eq(ingredient.id, recipeIngredient.ingredientId))
     .where(and(...filters))
@@ -61,10 +114,10 @@ export function listRecipes({ q, tag }: { q?: string; tag?: string }) {
     .all()
 }
 
-export function listTags() {
+export function listTags({ userId, groupId }: { userId: string; groupId: string }) {
   return db
     .all<{ tag: string }>(
-      sql`select distinct value as tag from ${recipe}, json_each(${recipe.tags}) order by value`
+      sql`select distinct value as tag from ${recipe}, json_each(${recipe.tags}) where ${scopeFilter(userId, groupId, 'all')} order by value`
     )
     .map((row) => row.tag)
 }
@@ -126,9 +179,13 @@ export function createRecipe(userId: string, { ingredients, steps, ...values }: 
   return { id }
 }
 
-export async function updateRecipe(id: string, { ingredients, steps, ...values }: RecipeData) {
-  const existing = db.select({ id: recipe.id }).from(recipe).where(eq(recipe.id, id)).get()
-  if (!existing) return { error: 'Recipe not found' }
+export async function updateRecipe(
+  id: string,
+  userId: string,
+  { ingredients, steps, ...values }: RecipeData
+) {
+  const error = ownerError(userId, id)
+  if (error) return { error }
   const resolved = resolveGrams(ingredients)
   if (resolved.error !== undefined) return { error: resolved.error }
 
@@ -165,16 +222,18 @@ export async function updateRecipe(id: string, { ingredients, steps, ...values }
   return { id }
 }
 
-export async function deleteRecipe(id: string) {
-  const existing = db.select({ id: recipe.id }).from(recipe).where(eq(recipe.id, id)).get()
-  if (!existing) return { error: 'Recipe not found' }
+export async function deleteRecipe(id: string, userId: string) {
+  const error = ownerError(userId, id)
+  if (error) return { error }
   const images = db.select({ id: image.id }).from(image).where(eq(image.recipeId, id)).all()
   await Promise.all(images.map((row) => deleteImage(row.id)))
   db.delete(recipe).where(eq(recipe.id, id)).run()
   return {}
 }
 
-export async function setCoverImage(recipeId: string, imageId: string | null) {
+export async function setCoverImage(recipeId: string, userId: string, imageId: string | null) {
+  const error = ownerError(userId, recipeId)
+  if (error) return { error }
   const current = db
     .select({ coverImageId: recipe.coverImageId })
     .from(recipe)
@@ -202,4 +261,109 @@ export async function setCoverImage(recipeId: string, imageId: string | null) {
     if (!usedByStep) await deleteImage(previous)
   }
   return {}
+}
+
+export async function copyRecipe(recipeId: string, userId: string) {
+  if (!canViewRecipe(userId, recipeId)) return { error: 'Recipe not found' }
+  const source = db.query.recipe
+    .findFirst({
+      where: eq(recipe.id, recipeId),
+      with: { ingredients: true, steps: true, images: true },
+    })
+    .sync()
+  if (!source) return { error: 'Recipe not found' }
+
+  const copies = source.images.map((img) => ({ ...img, newId: crypto.randomUUID() }))
+  const copyOf = (id: string | null) => copies.find((img) => img.id === id)?.newId ?? null
+  await Promise.all(copies.map((img) => fs.copyFile(imagePath(img.id), imagePath(img.newId))))
+
+  const id = db.transaction((tx) => {
+    const { id } = tx
+      .insert(recipe)
+      .values({
+        title: source.title,
+        description: source.description,
+        servings: source.servings,
+        cookedWeightGrams: source.cookedWeightGrams,
+        tags: source.tags,
+        createdById: userId,
+      })
+      .returning({ id: recipe.id })
+      .get()
+    if (copies.length) {
+      tx.insert(image)
+        .values(
+          copies.map((img) => ({
+            id: img.newId,
+            recipeId: id,
+            width: img.width,
+            height: img.height,
+          }))
+        )
+        .run()
+      tx.update(recipe)
+        .set({ coverImageId: copyOf(source.coverImageId) })
+        .where(eq(recipe.id, id))
+        .run()
+    }
+    if (source.ingredients.length) {
+      tx.insert(recipeIngredient)
+        .values(
+          source.ingredients.map((line) => ({
+            recipeId: id,
+            ingredientId: line.ingredientId,
+            quantity: line.quantity,
+            unit: line.unit,
+            grams: line.grams,
+            groupName: line.groupName,
+            position: line.position,
+          }))
+        )
+        .run()
+    }
+    if (source.steps.length) {
+      tx.insert(recipeStep)
+        .values(
+          source.steps.map((step) => ({
+            recipeId: id,
+            text: step.text,
+            imageId: copyOf(step.imageId),
+            position: step.position,
+          }))
+        )
+        .run()
+    }
+    return id
+  })
+  return { id }
+}
+
+export function shareRecipe(recipeId: string, groupId: string, userId: string) {
+  const error = ownerError(userId, recipeId)
+  if (error) return { error }
+  if (!isMember(userId, groupId)) return { error: 'Group not found' }
+  db.insert(recipeShare)
+    .values({ recipeId, groupId, sharedById: userId })
+    .onConflictDoNothing()
+    .run()
+  return {}
+}
+
+export function unshareRecipe(recipeId: string, groupId: string, userId: string) {
+  const error = ownerError(userId, recipeId)
+  if (error) return { error }
+  db.delete(recipeShare)
+    .where(and(eq(recipeShare.recipeId, recipeId), eq(recipeShare.groupId, groupId)))
+    .run()
+  return {}
+}
+
+export function listRecipeShares(recipeId: string) {
+  return db
+    .select({ groupId: group.id, name: group.name })
+    .from(recipeShare)
+    .innerJoin(group, eq(group.id, recipeShare.groupId))
+    .where(eq(recipeShare.recipeId, recipeId))
+    .orderBy(asc(group.name))
+    .all()
 }

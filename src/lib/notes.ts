@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { recipe, recipeNote } from '@/db/schema'
+import { recipeNote } from '@/db/schema'
+import { canViewRecipe } from './access'
 
 export function getNote(userId: string, recipeId: string) {
   return db
@@ -11,8 +12,7 @@ export function getNote(userId: string, recipeId: string) {
 }
 
 export function saveNote(userId: string, recipeId: string, text: string) {
-  const found = db.select({ id: recipe.id }).from(recipe).where(eq(recipe.id, recipeId)).get()
-  if (!found) return { error: 'Recipe not found' }
+  if (!canViewRecipe(userId, recipeId)) return { error: 'Recipe not found' }
 
   if (text) {
     db.insert(recipeNote)

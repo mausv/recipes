@@ -7,7 +7,14 @@ import { setupTestDb } from '@/test/db'
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/session', () => ({ requireUser: vi.fn() }))
 
-const { db, schema, insertUser, insertIngredient } = await setupTestDb()
+const jar = vi.hoisted(() => new Map<string, string>())
+vi.mock('next/headers', () => ({
+  cookies: async () => ({
+    get: (name: string) => (jar.has(name) ? { name, value: jar.get(name) } : undefined),
+  }),
+}))
+
+const { db, schema, insertUser, insertIngredient, insertGroup, insertRecipe } = await setupTestDb()
 const {
   addRecipeToShoppingList,
   addShoppingItem,
@@ -21,6 +28,8 @@ const {
 } = await import('./shopping')
 
 const user = insertUser()
+const home = insertGroup('Home', [user.id])
+const cabin = insertGroup('Cabin', [user.id])
 const oats = insertIngredient(user.id, { density: 0.4 })
 const egg = insertIngredient(user.id, { name: 'Egg', kcal: 143 })
 const milk = insertIngredient(user.id, { name: 'Milk', kcal: 64 })
@@ -61,6 +70,7 @@ const emptyRecipe = db
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(requireUser).mockResolvedValue(user)
+  jar.clear()
   db.delete(schema.shoppingItem).run()
   db.delete(schema.pantryItem).run()
 })
@@ -100,13 +110,13 @@ function pantryGrams(ingredientId: string) {
 function insertItem(values: Partial<typeof schema.shoppingItem.$inferInsert> = {}) {
   return db
     .insert(schema.shoppingItem)
-    .values({ name: 'Oats', ingredientId: oats.id, grams: 100, ...values })
+    .values({ groupId: home.id, name: 'Oats', ingredientId: oats.id, grams: 100, ...values })
     .returning()
     .get()
 }
 
 function insertPantry(ingredientId: string, grams: number | null) {
-  db.insert(schema.pantryItem).values({ ingredientId, grams }).run()
+  db.insert(schema.pantryItem).values({ groupId: home.id, ingredientId, grams }).run()
 }
 
 describe('addRecipeToShoppingList', () => {
@@ -163,6 +173,13 @@ describe('addRecipeToShoppingList', () => {
 
   it('returns an error for an unknown recipe', async () => {
     expect(await addRecipeToShoppingList({ recipeId: 'missing', servings: 2 })).toEqual({
+      error: 'Recipe not found',
+    })
+  })
+
+  it('refuses a recipe the user cannot see', async () => {
+    const hidden = insertRecipe(insertUser().id)
+    expect(await addRecipeToShoppingList({ recipeId: hidden.id, servings: 1 })).toEqual({
       error: 'Recipe not found',
     })
   })
@@ -527,5 +544,40 @@ describe('markBoughtIntoPantry', () => {
     await expect(markBoughtIntoPantry()).rejects.toThrow()
     expect(items()).toHaveLength(1)
     expect(pantry()).toEqual([])
+  })
+})
+
+describe('active group', () => {
+  function groupOf(itemName: string) {
+    return db
+      .select({ groupId: schema.shoppingItem.groupId })
+      .from(schema.shoppingItem)
+      .where(eq(schema.shoppingItem.name, itemName))
+      .get()?.groupId
+  }
+
+  it('adds items to the user’s earliest group without a cookie', async () => {
+    await addShoppingItem({ name: 'Bread' })
+    expect(groupOf('Bread')).toBe(home.id)
+  })
+
+  it('adds items to the group chosen in the cookie', async () => {
+    jar.set('group', cabin.id)
+    await addShoppingItem({ name: 'Bread' })
+    expect(groupOf('Bread')).toBe(cabin.id)
+  })
+
+  it('only clears the active group’s list', async () => {
+    insertItem({ name: 'Home item' })
+    jar.set('group', cabin.id)
+    await clearShoppingList()
+    expect(items().map((i) => i.name)).toEqual(['Home item'])
+  })
+
+  it('does not touch items of another group', async () => {
+    const item = insertItem({ name: 'Home item' })
+    jar.set('group', cabin.id)
+    await removeShoppingItems([item.id])
+    expect(items()).toHaveLength(1)
   })
 })

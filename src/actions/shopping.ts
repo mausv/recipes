@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { getActiveGroup } from '@/lib/active-group'
 import { requireUser } from '@/lib/session'
 import * as shoppingList from '@/lib/shopping-list'
 import {
@@ -12,72 +13,73 @@ import {
   shoppingItemSchema,
 } from '@/lib/validation/shopping'
 
+async function activeGroupId() {
+  const user = await requireUser()
+  return (await getActiveGroup(user.id)).id
+}
+
 export async function addRecipeToShoppingList(input: AddRecipeInput) {
-  await requireUser()
+  const user = await requireUser()
   const parsed = addRecipeSchema.safeParse(input)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
-  const result = shoppingList.addRecipeToShoppingList(parsed.data.recipeId, parsed.data.servings)
+  const { id: groupId } = await getActiveGroup(user.id)
+  const { recipeId, servings } = parsed.data
+  const result = shoppingList.addRecipeToShoppingList(groupId, user.id, recipeId, servings)
   if (result.error === undefined) revalidatePath('/shopping')
   return result
 }
 
 export async function addShoppingItem(input: ShoppingItemInput) {
-  await requireUser()
+  const groupId = await activeGroupId()
   const parsed = shoppingItemSchema.safeParse(input)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
-  const result = shoppingList.addShoppingItem(parsed.data)
+  const result = shoppingList.addShoppingItem(groupId, parsed.data)
   if ('error' in result) return { error: result.error }
   revalidatePath('/shopping')
   return {}
 }
 
 export async function toggleShoppingItems(ids: string[], checked: boolean) {
-  await requireUser()
-  shoppingList.setShoppingItemsChecked(ids, checked)
+  shoppingList.setShoppingItemsChecked(await activeGroupId(), ids, checked)
   revalidatePath('/shopping')
   return {}
 }
 
 export async function removeShoppingItems(ids: string[]) {
-  await requireUser()
-  shoppingList.removeShoppingItems(ids)
+  shoppingList.removeShoppingItems(await activeGroupId(), ids)
   revalidatePath('/shopping')
   return {}
 }
 
 export async function clearCheckedItems() {
-  await requireUser()
-  shoppingList.clearCheckedItems()
+  shoppingList.clearCheckedItems(await activeGroupId())
   revalidatePath('/shopping')
   return {}
 }
 
 export async function clearShoppingList() {
-  await requireUser()
-  shoppingList.clearShoppingList()
+  shoppingList.clearShoppingList(await activeGroupId())
   revalidatePath('/shopping')
   return {}
 }
 
 export async function setPantryItem(input: PantryItemInput) {
-  await requireUser()
+  const groupId = await activeGroupId()
   const parsed = pantryItemSchema.safeParse(input)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
-  const result = shoppingList.setPantryItem(parsed.data)
+  const result = shoppingList.setPantryItem(groupId, parsed.data)
   if (result.error === undefined) revalidatePath('/shopping')
   return result
 }
 
 export async function removePantryItem(ingredientId: string) {
-  await requireUser()
-  shoppingList.removePantryItem(ingredientId)
+  shoppingList.removePantryItem(await activeGroupId(), ingredientId)
   revalidatePath('/shopping')
   return {}
 }
 
 export async function markBoughtIntoPantry() {
-  await requireUser()
-  const result = shoppingList.moveBoughtToPantry()
+  const result = shoppingList.moveBoughtToPantry(await activeGroupId())
   revalidatePath('/shopping')
   return result
 }

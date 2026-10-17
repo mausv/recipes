@@ -71,13 +71,13 @@ export function ImportCard() {
                 </Field>
                 <Field orientation="horizontal">
                   <RadioGroupItem id="mode-replace" value="replace" />
-                  <FieldLabel htmlFor="mode-replace">Replace everything</FieldLabel>
+                  <FieldLabel htmlFor="mode-replace">Replace my recipes</FieldLabel>
                 </Field>
               </RadioGroup>
               {mode === 'replace' && (
                 <FieldDescription className="text-destructive">
-                  Deletes all recipes, ingredients, photos, comments, notes, the shopping list and
-                  the pantry before importing.
+                  Deletes all your recipes with their photos, comments and notes before importing.
+                  The ingredient library is kept.
                 </FieldDescription>
               )}
             </FieldSet>
@@ -102,10 +102,10 @@ export function ImportCard() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Replace everything?</DialogTitle>
+            <DialogTitle>Replace your recipes?</DialogTitle>
             <DialogDescription>
-              This permanently deletes all current recipes, ingredients, photos, comments, notes,
-              the shopping list and the pantry, then imports the file.
+              This permanently deletes all your recipes with their photos, comments and notes, then
+              imports the file.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -7,18 +7,21 @@ import { setupTestDb } from '@/test/db'
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/session', () => ({ requireUser: vi.fn() }))
 
-const { db, schema, insertUser } = await setupTestDb()
+const { db, schema, insertUser, insertGroup, shareInto } = await setupTestDb()
 const { saveNote } = await import('./notes')
 
 const ana = insertUser()
 const ben = insertUser()
+const home = insertGroup('Home', [ana.id, ben.id])
 
 function insertRecipe() {
-  return db
+  const { id } = db
     .insert(schema.recipe)
     .values({ title: 'Porridge', createdById: ana.id })
     .returning()
-    .get().id
+    .get()
+  shareInto(id, home.id, ana.id)
+  return id
 }
 
 function notesOf(recipeId: string) {
@@ -101,6 +104,13 @@ describe('saveNote', () => {
 
   it('rejects a note on an unknown recipe', async () => {
     expect(await saveNote({ recipeId: 'missing', text: 'Hi' })).toEqual({
+      error: 'Recipe not found',
+    })
+  })
+
+  it('rejects a note on a recipe the user cannot see', async () => {
+    vi.mocked(requireUser).mockResolvedValue(insertUser())
+    expect(await saveNote({ recipeId: insertRecipe(), text: 'Hi' })).toEqual({
       error: 'Recipe not found',
     })
   })

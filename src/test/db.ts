@@ -38,7 +38,42 @@ export async function setupTestDb() {
       .get()
   }
 
-  return { db, schema, dataDir, insertUser, insertIngredient }
+  function insertGroup(name: string, [adminId, ...memberIds]: string[]) {
+    const created = db.insert(schema.group).values({ name, createdById: adminId }).returning().get()
+    db.insert(schema.groupMember)
+      .values([
+        { groupId: created.id, userId: adminId, role: 'admin' as const },
+        ...memberIds.map((userId) => ({ groupId: created.id, userId, role: 'member' as const })),
+      ])
+      .run()
+    return created
+  }
+
+  function insertRecipe(
+    createdById: string,
+    values: Partial<typeof schema.recipe.$inferInsert> = {}
+  ) {
+    return db
+      .insert(schema.recipe)
+      .values({ title: 'Porridge', createdById, ...values })
+      .returning()
+      .get()
+  }
+
+  function shareInto(recipeId: string, groupId: string, sharedById: string) {
+    db.insert(schema.recipeShare).values({ recipeId, groupId, sharedById }).run()
+  }
+
+  return {
+    db,
+    schema,
+    dataDir,
+    insertUser,
+    insertIngredient,
+    insertGroup,
+    insertRecipe,
+    shareInto,
+  }
 }
 
 export type TestUser = typeof userTable.$inferSelect

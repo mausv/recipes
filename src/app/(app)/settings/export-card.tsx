@@ -14,7 +14,8 @@ export function ExportCard() {
       <div className="space-y-1">
         <h2 className="text-2xl">Export</h2>
         <p className="text-sm text-muted-foreground">
-          Download every recipe and ingredient as a JSON file, including comments and notes.
+          Download your recipes and the ingredient library as a JSON file, including comments and
+          your notes.
         </p>
       </div>
       <div className="space-y-4">

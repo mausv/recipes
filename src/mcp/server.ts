@@ -10,6 +10,7 @@ import {
   listIngredients,
   updateIngredient,
 } from '@/lib/ingredients'
+import { defaultGroup } from '@/lib/groups'
 import { getNote, saveNote } from '@/lib/notes'
 import { searchNutrition } from '@/lib/nutrition-sources'
 import {
@@ -38,7 +39,8 @@ import { noteSchema } from '@/lib/validation/note'
 import { recipeIngredientSchema, recipeSchema, recipeStepSchema } from '@/lib/validation/recipe'
 import { addRecipeSchema, pantryItemSchema, shoppingItemSchema } from '@/lib/validation/shopping'
 
-const INSTRUCTIONS = `Household recipe library with nutrition, a shared shopping list and a pantry.
+const INSTRUCTIONS = `Recipe library with nutrition, a shopping list and a pantry.
+- Recipes are personal: you see your own recipes and those shared into your groups, and can only change your own. The shopping list and pantry belong to your first group.
 - Ingredients live in a shared library. Nutrition (kcal, protein, carbs, fat, fiber) is per 100 g. Density is g/ml (default 1). Ingredients can have custom units (e.g. "piece" = 50 g).
 - Recipe ingredient lines reference a library ingredient by id with a quantity and a unit. Grams are resolved server-side.
 - Built-in units: weight g, kg, oz, lb; volume ml, l, tsp, tbsp, cup, fl oz (converted to grams via the ingredient's density). An ingredient's custom units (matched case-insensitively) override a built-in of the same name, e.g. "cup" = 90 g for oats.
@@ -92,6 +94,7 @@ const destructive = { destructiveHint: true }
 
 export function createMcpServer(userId: string) {
   const server = new McpServer({ name: 'recipes', version }, { instructions: INSTRUCTIONS })
+  const groupId = () => defaultGroup(userId).id
 
   server.registerTool(
     'list_recipes',
@@ -100,7 +103,8 @@ export function createMcpServer(userId: string) {
       inputSchema: { q: z.string().optional(), tag: z.string().optional() },
       annotations: read,
     },
-    (filters) => reply({ recipes: listRecipes(filters) })
+    (filters) =>
+      reply({ recipes: listRecipes({ ...filters, userId, groupId: groupId(), scope: 'all' }) })
   )
 
   server.registerTool(
@@ -112,7 +116,7 @@ export function createMcpServer(userId: string) {
       annotations: read,
     },
     async ({ id }) => {
-      const recipe = await getRecipeWithNutrition(id)
+      const recipe = await getRecipeWithNutrition(id, userId)
       if (!recipe) return notFound('Recipe')
       return reply({
         id: recipe.id,
@@ -141,7 +145,7 @@ export function createMcpServer(userId: string) {
             ...line.macros,
           })),
         },
-        comments: listComments(id).map((c) => ({
+        comments: listComments(userId, id).map((c) => ({
           author: c.user.name,
           text: c.text,
           createdAt: c.createdAt.toISOString(),
@@ -170,10 +174,10 @@ export function createMcpServer(userId: string) {
       annotations: destructive,
     },
     async ({ id, coverImageId, ...input }) => {
-      const current = await getRecipeWithNutrition(id)
+      const current = await getRecipeWithNutrition(id, userId)
       if (!current) return notFound('Recipe')
       return reply(
-        await updateRecipe(id, {
+        await updateRecipe(id, userId, {
           ...input,
           coverImageId: coverImageId === undefined ? current.coverImageId : coverImageId,
         })
@@ -188,7 +192,7 @@ export function createMcpServer(userId: string) {
       inputSchema: { id },
       annotations: destructive,
     },
-    async ({ id }) => reply(await deleteRecipe(id))
+    async ({ id }) => reply(await deleteRecipe(id, userId))
   )
 
   server.registerTool(
@@ -260,10 +264,10 @@ export function createMcpServer(userId: string) {
     'get_shopping_list',
     {
       description:
-        'Get the shared shopping list: needs merged per ingredient with the pantry applied (toBuyGrams), free-text items, and the pantry.',
+        'Get the group shopping list: needs merged per ingredient with the pantry applied (toBuyGrams), free-text items, and the pantry.',
       annotations: read,
     },
-    () => reply(getShoppingList())
+    () => reply(getShoppingList(groupId()))
   )
 
   server.registerTool(
@@ -272,7 +276,8 @@ export function createMcpServer(userId: string) {
       description: 'Add a recipe’s ingredients to the shopping list, scaled to the given servings.',
       inputSchema: addRecipeSchema,
     },
-    ({ recipeId, servings }) => reply(addRecipeToShoppingList(recipeId, servings))
+    ({ recipeId, servings }) =>
+      reply(addRecipeToShoppingList(groupId(), userId, recipeId, servings))
   )
 
   server.registerTool(
@@ -286,7 +291,7 @@ export function createMcpServer(userId: string) {
         ),
       }),
     },
-    (input) => reply(addShoppingItem(input))
+    (input) => reply(addShoppingItem(groupId(), input))
   )
 
   server.registerTool(
@@ -296,7 +301,7 @@ export function createMcpServer(userId: string) {
       inputSchema: { ids, checked: z.boolean() },
     },
     ({ ids, checked }) => {
-      setShoppingItemsChecked(ids, checked)
+      setShoppingItemsChecked(groupId(), ids, checked)
       return reply({ ok: true })
     }
   )
@@ -309,7 +314,7 @@ export function createMcpServer(userId: string) {
       annotations: destructive,
     },
     ({ ids }) => {
-      removeShoppingItems(ids)
+      removeShoppingItems(groupId(), ids)
       return reply({ ok: true })
     }
   )
@@ -318,7 +323,7 @@ export function createMcpServer(userId: string) {
     'clear_checked_items',
     { description: 'Remove all checked items from the shopping list.', annotations: destructive },
     () => {
-      clearCheckedItems()
+      clearCheckedItems(groupId())
       return reply({ ok: true })
     }
   )
@@ -329,14 +334,14 @@ export function createMcpServer(userId: string) {
       description:
         'Move checked ingredient items into the pantry (adding their grams) and remove them from the list.',
     },
-    () => reply(moveBoughtToPantry())
+    () => reply(moveBoughtToPantry(groupId()))
   )
 
   server.registerTool(
     'clear_shopping_list',
     { description: 'Remove every item from the shopping list.', annotations: destructive },
     () => {
-      clearShoppingList()
+      clearShoppingList(groupId())
       return reply({ ok: true })
     }
   )
@@ -348,7 +353,7 @@ export function createMcpServer(userId: string) {
         'Set how many grams of an ingredient are in the pantry; null means an unknown amount.',
       inputSchema: pantryItemSchema,
     },
-    (input) => reply(setPantryItem(input))
+    (input) => reply(setPantryItem(groupId(), input))
   )
 
   server.registerTool(
@@ -359,7 +364,7 @@ export function createMcpServer(userId: string) {
       annotations: destructive,
     },
     ({ ingredientId }) => {
-      removePantryItem(ingredientId)
+      removePantryItem(groupId(), ingredientId)
       return reply({ ok: true })
     }
   )
@@ -367,7 +372,7 @@ export function createMcpServer(userId: string) {
   server.registerTool(
     'add_comment',
     {
-      description: 'Post a comment on a recipe, visible to the household.',
+      description: 'Post a comment on a recipe, visible to everyone who can see the recipe.',
       inputSchema: commentSchema,
     },
     ({ recipeId, text }) => reply(addComment(userId, recipeId, text))
@@ -384,8 +389,8 @@ export function createMcpServer(userId: string) {
 
   server.registerTool(
     'list_tags',
-    { description: 'List every recipe tag.', annotations: read },
-    () => reply({ tags: listTags() })
+    { description: 'List the tags of the recipes you can see.', annotations: read },
+    () => reply({ tags: listTags({ userId, groupId: groupId() }) })
   )
 
   return server

@@ -1,8 +1,10 @@
 import { asc, eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { recipe, recipeComment } from '@/db/schema'
+import { recipeComment } from '@/db/schema'
+import { canViewRecipe } from './access'
 
-export function listComments(recipeId: string) {
+export function listComments(userId: string, recipeId: string) {
+  if (!canViewRecipe(userId, recipeId)) return []
   return db.query.recipeComment
     .findMany({
       where: eq(recipeComment.recipeId, recipeId),
@@ -13,8 +15,7 @@ export function listComments(recipeId: string) {
 }
 
 export function addComment(userId: string, recipeId: string, text: string) {
-  const found = db.select({ id: recipe.id }).from(recipe).where(eq(recipe.id, recipeId)).get()
-  if (!found) return { error: 'Recipe not found' }
+  if (!canViewRecipe(userId, recipeId)) return { error: 'Recipe not found' }
   return db
     .insert(recipeComment)
     .values({ recipeId, text, userId })

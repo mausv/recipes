@@ -5,10 +5,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { setupTestDb } from '@/test/db'
 
-const { db, schema, insertUser } = await setupTestDb()
+const { db, schema, insertUser, insertGroup, insertRecipe, shareInto } = await setupTestDb()
 const { createMcpServer } = await import('./server')
 
 const user = insertUser()
+const friend = insertUser()
+const home = insertGroup('Home', [user.id, friend.id])
 
 function itemIds(where: SQL) {
   return db
@@ -305,6 +307,31 @@ describe('mcp server', () => {
     expect(await call('get_recipe', { id })).toMatchObject({
       ingredients: [{ quantity: 3, unit: 'tsp', grams: expect.closeTo(6) }],
     })
+  })
+
+  it('keeps the shopping list in the user’s first group', async () => {
+    await call('add_shopping_item', { name: 'Candles' })
+    expect(itemIds(eq(schema.shoppingItem.groupId, home.id))).toHaveLength(1)
+    await call('clear_shopping_list')
+  })
+
+  it('hides recipes that are not shared with the user', async () => {
+    const hidden = insertRecipe(insertUser().id, { title: 'Secret' })
+    expect(await callError('get_recipe', { id: hidden.id })).toEqual([
+      { type: 'text', text: 'Recipe not found' },
+    ])
+    expect(await call('list_recipes', { q: 'Secret' })).toEqual({ recipes: [] })
+  })
+
+  it('shows a friend’s recipe shared into the group but refuses to change it', async () => {
+    const shared = insertRecipe(friend.id, { title: 'Friend’s stew' })
+    shareInto(shared.id, home.id, friend.id)
+    expect(await call('list_recipes', { q: 'stew' })).toMatchObject({
+      recipes: [{ id: shared.id }],
+    })
+    expect(await callError('delete_recipe', { id: shared.id })).toEqual([
+      { type: 'text', text: 'Only the owner can change this recipe' },
+    ])
   })
 
   it('looks up nutrition from Open Food Facts', async () => {

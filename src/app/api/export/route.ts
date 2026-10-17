@@ -3,10 +3,12 @@ import { getSession } from '@/lib/session'
 import { buildExport } from '@/lib/transfer'
 
 export async function GET(request: NextRequest) {
-  if (!(await getSession())) return new Response('Unauthorized', { status: 401 })
+  const session = await getSession()
+  if (!session) return new Response('Unauthorized', { status: 401 })
   const params = request.nextUrl.searchParams
   const recipeId = params.get('recipe')
   const doc = await buildExport({
+    userId: session.user.id,
     recipeIds: recipeId ? [recipeId] : undefined,
     includeImages: params.get('images') === '1',
   })

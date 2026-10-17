@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth-client'
 import { signedOAuthQuery } from '@/lib/oauth-query'
 import { useLocationSearch } from '@/lib/use-location-search'
+import { nextPath } from '@/lib/utils'
 
 export function SignupForm() {
   const router = useRouter()
@@ -31,7 +32,7 @@ export function SignupForm() {
     setPending(false)
     if (error) return setError(error.message ?? 'Sign up failed')
     if ('redirect' in data) return
-    router.push('/')
+    router.push(nextPath(search))
     router.refresh()
   }
 

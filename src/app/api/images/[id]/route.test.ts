@@ -6,7 +6,7 @@ import { pngBuffer, sessionFor, setupTestDb } from '@/test/db'
 
 vi.mock('@/lib/session', () => ({ getSession: vi.fn() }))
 
-const { insertUser } = await setupTestDb()
+const { insertUser, insertGroup, insertRecipe, shareInto } = await setupTestDb()
 const { imagePath, saveImage } = await import('@/lib/images')
 const { GET } = await import('./route')
 
@@ -53,6 +53,19 @@ describe('GET /api/images/[id]', () => {
 
   it('does not resolve ids that point outside the images folder', async () => {
     expect((await get('../recipes.db')).status).toBe(404)
+  })
+
+  it('serves an image of a recipe shared with the user', async () => {
+    const owner = insertUser()
+    const recipe = insertRecipe(owner.id)
+    shareInto(recipe.id, insertGroup('Home', [owner.id, user.id]).id, owner.id)
+    const saved = await saveImage(await pngBuffer(), recipe.id)
+    expect((await get(saved.id)).status).toBe(200)
+  })
+
+  it('returns 404 for an image of a recipe the user cannot see', async () => {
+    const saved = await saveImage(await pngBuffer(), insertRecipe(insertUser().id).id)
+    expect((await get(saved.id)).status).toBe(404)
   })
 
   it('returns 401 without a session', async () => {

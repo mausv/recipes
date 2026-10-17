@@ -14,7 +14,7 @@ type ConnectionRow = { clientId: string; name: string | null; connectedAt: Date 
 
 const keyDate = new Intl.DateTimeFormat('en', { dateStyle: 'medium' })
 
-function CopyBlock({ label, text }: { label: string; text: string }) {
+export function CopyBlock({ label, text }: { label: string; text: string }) {
   async function copy() {
     await navigator.clipboard.writeText(text)
     toast.success(`${label} copied`)
@@ -33,7 +33,7 @@ function CopyBlock({ label, text }: { label: string; text: string }) {
   )
 }
 
-function RevokeButton({
+export function RevokeButton({
   name,
   revoke: revokeAction,
 }: {

@@ -70,3 +70,19 @@ describe('sign-up invite code hook', () => {
     expect(res.status).toBe(200)
   })
 })
+
+describe('sign-up group hook', () => {
+  it('creates a personal group with the new user as admin', async () => {
+    const res = await signUp({
+      ...account,
+      name: 'Ana María',
+      email: 'group@example.com',
+      inviteCode: 'open-sesame',
+    })
+    const { user } = await res.json()
+    const { listGroups } = await import('./groups')
+    expect(listGroups(user.id)).toEqual([
+      expect.objectContaining({ name: 'Ana’s kitchen', role: 'admin', memberCount: 1 }),
+    ])
+  })
+})

@@ -7,7 +7,7 @@ import { setupTestDb } from '@/test/db'
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/session', () => ({ requireUser: vi.fn() }))
 
-const { db, schema, insertUser } = await setupTestDb()
+const { db, schema, insertUser, insertGroup, shareInto } = await setupTestDb()
 const { addComment, deleteComment } = await import('./comments')
 
 const ana = insertUser()
@@ -17,6 +17,7 @@ const porridge = db
   .values({ title: 'Porridge', createdById: ana.id })
   .returning()
   .get()
+shareInto(porridge.id, insertGroup('Home', [ana.id, ben.id]).id, ana.id)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -52,6 +53,13 @@ describe('addComment', () => {
 
   it('rejects a comment on an unknown recipe', async () => {
     expect(await addComment({ recipeId: 'missing', text: 'Hi' })).toEqual({
+      error: 'Recipe not found',
+    })
+  })
+
+  it('rejects a comment on a recipe the user cannot see', async () => {
+    vi.mocked(requireUser).mockResolvedValue(insertUser())
+    expect(await addComment({ recipeId: porridge.id, text: 'Hi' })).toEqual({
       error: 'Recipe not found',
     })
   })

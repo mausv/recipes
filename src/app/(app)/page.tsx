@@ -4,8 +4,10 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { getActiveGroup } from '@/lib/active-group'
 import { formatKcal } from '@/lib/nutrition'
 import { listRecipes, listTags } from '@/lib/recipes'
+import { requireUser } from '@/lib/session'
 import { cn } from '@/lib/utils'
 
 function href(q: string, tag: string) {
@@ -20,8 +22,10 @@ export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
   const { q, tag } = await searchParams
   const query = typeof q === 'string' ? q.trim() : ''
   const activeTag = typeof tag === 'string' ? tag : ''
-  const recipes = listRecipes({ q: query, tag: activeTag })
-  const tags = listTags()
+  const user = await requireUser()
+  const { id: groupId } = await getActiveGroup(user.id)
+  const recipes = listRecipes({ userId: user.id, groupId, scope: 'all', q: query, tag: activeTag })
+  const tags = listTags({ userId: user.id, groupId })
   const filtered = Boolean(query || activeTag)
 
   return (
@@ -115,6 +119,9 @@ export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
                   {r.servings} {r.servings === 1 ? 'serving' : 'servings'},{' '}
                   {formatKcal(r.kcalPerServing)} kcal each
                 </p>
+                {r.createdById !== user.id && (
+                  <p className="mt-1 text-sm text-muted-foreground">Shared by {r.ownerName}</p>
+                )}
                 {r.tags.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {r.tags.map((t) => (

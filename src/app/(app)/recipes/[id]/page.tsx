@@ -1,4 +1,3 @@
-import { and, asc, eq } from 'drizzle-orm'
 import { Download, Pencil } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -7,32 +6,32 @@ import { deleteRecipe } from '@/actions/recipes'
 import { AddToShoppingListButton } from '@/components/add-to-shopping-list'
 import { ConfirmDeleteButton } from '@/components/confirm-delete-button'
 import { buttonVariants } from '@/components/ui/button'
-import { db } from '@/db'
-import { recipeComment, recipeNote } from '@/db/schema'
-import { getRecipeWithNutrition } from '@/lib/recipes'
+import { listComments } from '@/lib/comments'
+import { listGroups } from '@/lib/groups'
+import { getNote } from '@/lib/notes'
+import { getRecipeWithNutrition, listRecipeShares } from '@/lib/recipes'
 import { requireUser } from '@/lib/session'
 import { CommentForm } from './comment-form'
+import { CopyButton } from './copy-button'
 import { DeleteCommentButton } from './delete-comment-button'
 import { NoteForm } from './note-form'
 import { RecipeBody } from './recipe-body'
+import { ShareButton } from './share-button'
 
 const commentDate = new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' })
 
 export default async function RecipePage({ params }: PageProps<'/recipes/[id]'>) {
   const { id } = await params
-  const recipe = await getRecipeWithNutrition(id)
-  if (!recipe) notFound()
   const user = await requireUser()
-  const comments = await db.query.recipeComment.findMany({
-    where: eq(recipeComment.recipeId, id),
-    orderBy: asc(recipeComment.createdAt),
-    with: { user: { columns: { name: true } } },
-  })
-  const note = db
-    .select({ text: recipeNote.text })
-    .from(recipeNote)
-    .where(and(eq(recipeNote.recipeId, id), eq(recipeNote.userId, user.id)))
-    .get()
+  const recipe = await getRecipeWithNutrition(id, user.id)
+  if (!recipe) notFound()
+  const isOwner = recipe.createdById === user.id
+  const comments = listComments(user.id, id)
+  const note = getNote(user.id, id)
+  const sharedIds = new Set(listRecipeShares(id).map((s) => s.groupId))
+  const shareGroups = isOwner
+    ? listGroups(user.id).map((g) => ({ id: g.id, name: g.name, shared: sharedIds.has(g.id) }))
+    : []
 
   return (
     <article>
@@ -71,23 +70,30 @@ export default async function RecipePage({ params }: PageProps<'/recipes/[id]'>)
         </div>
         <div className="order-last flex flex-wrap items-center gap-x-1 gap-y-2 pt-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:self-end lg:pt-0">
           <AddToShoppingListButton recipeId={id} defaultServings={recipe.servings} />
-          <Link href={`/recipes/${id}/edit`} className={buttonVariants({ variant: 'ghost' })}>
-            <Pencil />
-            Edit
-          </Link>
-          <a
-            href={`/api/export?recipe=${id}&images=1`}
-            className={buttonVariants({ variant: 'ghost' })}
-          >
-            <Download />
-            Export
-          </a>
-          <ConfirmDeleteButton
-            title={`Delete ${recipe.title}?`}
-            description="This permanently deletes the recipe and its photos."
-            onConfirmAction={deleteRecipe.bind(null, id)}
-            redirectTo="/"
-          />
+          {isOwner ? (
+            <>
+              <ShareButton recipeId={id} groups={shareGroups} />
+              <Link href={`/recipes/${id}/edit`} className={buttonVariants({ variant: 'ghost' })}>
+                <Pencil />
+                Edit
+              </Link>
+              <a
+                href={`/api/export?recipe=${id}&images=1`}
+                className={buttonVariants({ variant: 'ghost' })}
+              >
+                <Download />
+                Export
+              </a>
+              <ConfirmDeleteButton
+                title={`Delete ${recipe.title}?`}
+                description="This permanently deletes the recipe and its photos."
+                onConfirmAction={deleteRecipe.bind(null, id)}
+                redirectTo="/"
+              />
+            </>
+          ) : (
+            <CopyButton recipeId={id} />
+          )}
         </div>
       </header>
 

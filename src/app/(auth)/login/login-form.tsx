@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth-client'
 import { signedOAuthQuery } from '@/lib/oauth-query'
 import { useLocationSearch } from '@/lib/use-location-search'
+import { nextPath } from '@/lib/utils'
 
 export function LoginForm() {
   const router = useRouter()
@@ -28,7 +29,7 @@ export function LoginForm() {
     setPending(false)
     if (error) return setError(error.message ?? 'Sign in failed')
     if (data.redirect) return
-    router.push('/')
+    router.push(nextPath(search))
     router.refresh()
   }
 

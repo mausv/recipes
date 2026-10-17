@@ -1,12 +1,14 @@
 import { notFound } from 'next/navigation'
 import { listIngredients } from '@/lib/ingredients'
 import { getRecipeWithNutrition } from '@/lib/recipes'
+import { requireUser } from '@/lib/session'
 import { RecipeForm } from '../../recipe-form'
 
 export default async function EditRecipePage({ params }: PageProps<'/recipes/[id]/edit'>) {
   const { id } = await params
-  const recipe = await getRecipeWithNutrition(id)
-  if (!recipe) notFound()
+  const user = await requireUser()
+  const recipe = await getRecipeWithNutrition(id, user.id)
+  if (!recipe || recipe.createdById !== user.id) notFound()
 
   return (
     <RecipeForm

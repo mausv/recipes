@@ -53,6 +53,11 @@ describe('migrations', () => {
     'recipe_note',
     'shopping_item',
     'pantry_item',
+    'group',
+    'group_member',
+    'group_invite',
+    'recipe_share',
+    'meal_plan_entry',
   ])('creates the %s table', (table) => {
     expect(tableNames()).toContain(table)
   })

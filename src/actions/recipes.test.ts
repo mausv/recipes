@@ -9,12 +9,23 @@ import { pngBuffer, setupTestDb } from '@/test/db'
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/session', () => ({ requireUser: vi.fn() }))
 
-const { db, schema, insertUser, insertIngredient } = await setupTestDb()
+const { db, schema, insertUser, insertIngredient, insertGroup, shareInto } = await setupTestDb()
 const { imagePath, saveImage } = await import('@/lib/images')
-const { createRecipe, deleteRecipe, setCoverImage, updateRecipe, uploadRecipeImage } =
-  await import('./recipes')
+const { listRecipeShares } = await import('@/lib/recipes')
+const {
+  copyRecipe,
+  createRecipe,
+  deleteRecipe,
+  setCoverImage,
+  shareRecipe,
+  unshareRecipe,
+  updateRecipe,
+  uploadRecipeImage,
+} = await import('./recipes')
 
 const user = insertUser()
+const friend = insertUser()
+const kitchen = insertGroup('Kitchen', [user.id, friend.id])
 const oats = insertIngredient(user.id, { density: 0.4 })
 const egg = insertIngredient(user.id, { name: 'Egg', kcal: 143 })
 db.insert(schema.ingredientUnit).values({ ingredientId: egg.id, name: 'piece', grams: 50 }).run()
@@ -433,5 +444,103 @@ describe('setCoverImage', () => {
     vi.mocked(requireUser).mockRejectedValue(new Error('NEXT_REDIRECT'))
     await expect(setCoverImage(id, await upload())).rejects.toThrow()
     expect(findRecipe(id)?.coverImageId).toBeNull()
+  })
+})
+
+describe('owner checks', () => {
+  async function sharedWithFriend() {
+    const id = await created()
+    shareInto(id, kitchen.id, user.id)
+    vi.mocked(requireUser).mockResolvedValue(friend)
+    return id
+  }
+
+  it('refuses to update another user’s recipe', async () => {
+    const id = await sharedWithFriend()
+    expect(await updateRecipe(id, recipeInput({ title: 'Mine now' }))).toEqual({
+      error: 'Only the owner can change this recipe',
+    })
+    expect(findRecipe(id)?.title).toBe('Porridge')
+  })
+
+  it('refuses to delete another user’s recipe', async () => {
+    const id = await sharedWithFriend()
+    expect(await deleteRecipe(id)).toEqual({ error: 'Only the owner can change this recipe' })
+    expect(findRecipe(id)).toBeDefined()
+  })
+
+  it('refuses to set the cover of another user’s recipe', async () => {
+    const id = await sharedWithFriend()
+    expect(await setCoverImage(id, null)).toEqual({
+      error: 'Only the owner can change this recipe',
+    })
+  })
+})
+
+describe('copyRecipe', () => {
+  it('copies a shared recipe into the signed-in user’s library', async () => {
+    const id = await created()
+    shareInto(id, kitchen.id, user.id)
+    vi.mocked(requireUser).mockResolvedValue(friend)
+    const result = await copyRecipe(id)
+    if (result.error !== undefined) throw new Error(result.error)
+    expect(findRecipe(result.id)).toMatchObject({ title: 'Porridge', createdById: friend.id })
+    expect(linesOf(result.id)).toEqual(linesOf(id))
+  })
+
+  it('returns an error for a recipe the user cannot see', async () => {
+    const id = await created()
+    vi.mocked(requireUser).mockResolvedValue(insertUser())
+    expect(await copyRecipe(id)).toEqual({ error: 'Recipe not found' })
+  })
+
+  it('revalidates the recipe list', async () => {
+    await copyRecipe(await created())
+    expect(revalidatePath).toHaveBeenCalledWith('/')
+  })
+})
+
+describe('shareRecipe', () => {
+  it('shares the recipe into the group', async () => {
+    const id = await created()
+    expect(await shareRecipe(id, kitchen.id)).toEqual({})
+    expect(listRecipeShares(id).map((s) => s.groupId)).toEqual([kitchen.id])
+  })
+
+  it('refuses a recipe the user does not own', async () => {
+    const id = await created()
+    shareInto(id, kitchen.id, user.id)
+    vi.mocked(requireUser).mockResolvedValue(friend)
+    const other = insertGroup('Other', [friend.id])
+    expect(await shareRecipe(id, other.id)).toEqual({
+      error: 'Only the owner can change this recipe',
+    })
+  })
+
+  it('revalidates the list and the recipe page', async () => {
+    const id = await created()
+    vi.clearAllMocks()
+    await shareRecipe(id, kitchen.id)
+    expect(revalidatePath).toHaveBeenCalledWith('/')
+    expect(revalidatePath).toHaveBeenCalledWith(`/recipes/${id}`)
+  })
+})
+
+describe('unshareRecipe', () => {
+  it('removes the recipe from the group', async () => {
+    const id = await created()
+    shareInto(id, kitchen.id, user.id)
+    expect(await unshareRecipe(id, kitchen.id)).toEqual({})
+    expect(listRecipeShares(id)).toEqual([])
+  })
+
+  it('refuses a recipe the user does not own', async () => {
+    const id = await created()
+    shareInto(id, kitchen.id, user.id)
+    vi.mocked(requireUser).mockResolvedValue(friend)
+    expect(await unshareRecipe(id, kitchen.id)).toEqual({
+      error: 'Only the owner can change this recipe',
+    })
+    expect(listRecipeShares(id)).toHaveLength(1)
   })
 })

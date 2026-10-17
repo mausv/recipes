@@ -27,9 +27,25 @@ function migrate(sqlite: Database.Database, migrationsFolder: string) {
     .immediate()
 }
 
+// Switching a fresh database to WAL takes an exclusive lock without consulting the busy
+// handler, so concurrent first opens can fail with SQLITE_BUSY; retry until the timeout.
+function enableWal(sqlite: Database.Database, timeoutMs: number) {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    try {
+      sqlite.pragma('journal_mode = WAL')
+      return
+    } catch (error) {
+      const busy = error instanceof Database.SqliteError && error.code === 'SQLITE_BUSY'
+      if (!busy || Date.now() > deadline) throw error
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10)
+    }
+  }
+}
+
 export function openDatabase(file: string, migrationsFolder: string) {
   const sqlite = new Database(file, { timeout: 10_000 })
-  sqlite.pragma('journal_mode = WAL')
+  enableWal(sqlite, 10_000)
   sqlite.pragma('foreign_keys = ON')
   migrate(sqlite, migrationsFolder)
   return sqlite

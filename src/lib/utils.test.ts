@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { likePattern, move } from './utils'
+import { likePattern, move, nextPath } from './utils'
 
 describe('move', () => {
   it('moves an item one place up', () => {
@@ -36,5 +36,27 @@ describe('likePattern', () => {
 
   it('escapes the escape character', () => {
     expect(likePattern('a\\b')).toBe('%a\\\\b%')
+  })
+})
+
+describe('nextPath', () => {
+  it('returns a relative next path', () => {
+    expect(nextPath('?next=%2Fjoin%2Fabc')).toBe('/join/abc')
+  })
+
+  it('defaults to the home page without a next param', () => {
+    expect(nextPath('')).toBe('/')
+  })
+
+  it('rejects an absolute URL', () => {
+    expect(nextPath('?next=https%3A%2F%2Fevil.example')).toBe('/')
+  })
+
+  it('rejects a protocol-relative URL', () => {
+    expect(nextPath('?next=%2F%2Fevil.example')).toBe('/')
+  })
+
+  it('rejects a backslash host trick', () => {
+    expect(nextPath('?next=%2F%5Cevil.example')).toBe('/')
   })
 })

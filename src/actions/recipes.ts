@@ -18,10 +18,10 @@ export async function createRecipe(input: RecipeInput) {
 }
 
 export async function updateRecipe(id: string, input: RecipeInput) {
-  await requireUser()
+  const user = await requireUser()
   const parsed = recipeSchema.safeParse(input)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
-  const result = await recipes.updateRecipe(id, parsed.data)
+  const result = await recipes.updateRecipe(id, user.id, parsed.data)
   if (result.error === undefined) {
     revalidatePath('/')
     revalidatePath(`/recipes/${id}`)
@@ -30,8 +30,8 @@ export async function updateRecipe(id: string, input: RecipeInput) {
 }
 
 export async function deleteRecipe(id: string) {
-  await requireUser()
-  const result = await recipes.deleteRecipe(id)
+  const user = await requireUser()
+  const result = await recipes.deleteRecipe(id, user.id)
   if (result.error === undefined) revalidatePath('/')
   return result
 }
@@ -50,8 +50,35 @@ export async function uploadRecipeImage(formData: FormData) {
 }
 
 export async function setCoverImage(recipeId: string, imageId: string | null) {
-  await requireUser()
-  const result = await recipes.setCoverImage(recipeId, imageId)
+  const user = await requireUser()
+  const result = await recipes.setCoverImage(recipeId, user.id, imageId)
+  if (result.error === undefined) {
+    revalidatePath('/')
+    revalidatePath(`/recipes/${recipeId}`)
+  }
+  return result
+}
+
+export async function copyRecipe(recipeId: string) {
+  const user = await requireUser()
+  const result = await recipes.copyRecipe(recipeId, user.id)
+  if (result.error === undefined) revalidatePath('/')
+  return result
+}
+
+export async function shareRecipe(recipeId: string, groupId: string) {
+  const user = await requireUser()
+  const result = recipes.shareRecipe(recipeId, groupId, user.id)
+  if (result.error === undefined) {
+    revalidatePath('/')
+    revalidatePath(`/recipes/${recipeId}`)
+  }
+  return result
+}
+
+export async function unshareRecipe(recipeId: string, groupId: string) {
+  const user = await requireUser()
+  const result = recipes.unshareRecipe(recipeId, groupId, user.id)
   if (result.error === undefined) {
     revalidatePath('/')
     revalidatePath(`/recipes/${recipeId}`)

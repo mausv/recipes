@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { ingredient, pantryItem, recipe, recipeIngredient, shoppingItem } from '@/db/schema'
+import { canViewRecipe } from './access'
 import { applyPantry, mergeNeeds, scaleIngredientLines } from './shopping'
 import { isKnownUnit, toGrams } from './units'
 import type { PantryItemData, ShoppingItemData } from './validation/shopping'
@@ -11,7 +12,7 @@ function findIngredient(id: string) {
     .sync()
 }
 
-export function getShoppingList() {
+export function getShoppingList(groupId: string) {
   const items = db
     .select({
       id: shoppingItem.id,
@@ -26,6 +27,7 @@ export function getShoppingList() {
     })
     .from(shoppingItem)
     .leftJoin(recipe, eq(recipe.id, shoppingItem.recipeId))
+    .where(eq(shoppingItem.groupId, groupId))
     .orderBy(asc(shoppingItem.name), asc(shoppingItem.createdAt))
     .all()
   const pantry = db
@@ -37,6 +39,7 @@ export function getShoppingList() {
     })
     .from(pantryItem)
     .innerJoin(ingredient, eq(ingredient.id, pantryItem.ingredientId))
+    .where(eq(pantryItem.groupId, groupId))
     .orderBy(asc(ingredient.name))
     .all()
 
@@ -44,7 +47,13 @@ export function getShoppingList() {
   return { needs: applyPantry(needs, pantry), freeText, pantry }
 }
 
-export function addRecipeToShoppingList(recipeId: string, servings: number) {
+export function addRecipeToShoppingList(
+  groupId: string,
+  userId: string,
+  recipeId: string,
+  servings: number
+) {
+  if (!canViewRecipe(userId, recipeId)) return { error: 'Recipe not found' }
   const found = db.query.recipe
     .findFirst({
       where: eq(recipe.id, recipeId),
@@ -64,6 +73,7 @@ export function addRecipeToShoppingList(recipeId: string, servings: number) {
     db.insert(shoppingItem)
       .values(
         lines.map((l) => ({
+          groupId,
           ingredientId: l.ingredientId,
           name: l.ingredient.name,
           grams: l.grams,
@@ -77,11 +87,14 @@ export function addRecipeToShoppingList(recipeId: string, servings: number) {
   return { added: lines.length }
 }
 
-export function addShoppingItem({ name, quantity, unit, ingredientId }: ShoppingItemData) {
+export function addShoppingItem(
+  groupId: string,
+  { name, quantity, unit, ingredientId }: ShoppingItemData
+) {
   if (ingredientId === null) {
     return db
       .insert(shoppingItem)
-      .values({ name, quantity, unit })
+      .values({ groupId, name, quantity, unit })
       .returning({ id: shoppingItem.id })
       .get()
   }
@@ -93,54 +106,68 @@ export function addShoppingItem({ name, quantity, unit, ingredientId }: Shopping
       : null
   return db
     .insert(shoppingItem)
-    .values({ name: ing.name, ingredientId, grams, quantity, unit })
+    .values({ groupId, name: ing.name, ingredientId, grams, quantity, unit })
     .returning({ id: shoppingItem.id })
     .get()
 }
 
-export function setShoppingItemsChecked(ids: string[], checked: boolean) {
-  db.update(shoppingItem).set({ checked }).where(inArray(shoppingItem.id, ids)).run()
+function inGroup(groupId: string, ids: string[]) {
+  return and(eq(shoppingItem.groupId, groupId), inArray(shoppingItem.id, ids))
 }
 
-export function removeShoppingItems(ids: string[]) {
-  db.delete(shoppingItem).where(inArray(shoppingItem.id, ids)).run()
+export function setShoppingItemsChecked(groupId: string, ids: string[], checked: boolean) {
+  db.update(shoppingItem).set({ checked }).where(inGroup(groupId, ids)).run()
 }
 
-export function clearCheckedItems() {
-  db.delete(shoppingItem).where(eq(shoppingItem.checked, true)).run()
+export function removeShoppingItems(groupId: string, ids: string[]) {
+  db.delete(shoppingItem).where(inGroup(groupId, ids)).run()
 }
 
-export function clearShoppingList() {
-  db.delete(shoppingItem).run()
+export function clearCheckedItems(groupId: string) {
+  db.delete(shoppingItem)
+    .where(and(eq(shoppingItem.groupId, groupId), eq(shoppingItem.checked, true)))
+    .run()
 }
 
-export function setPantryItem({ ingredientId, grams }: PantryItemData) {
+export function clearShoppingList(groupId: string) {
+  db.delete(shoppingItem).where(eq(shoppingItem.groupId, groupId)).run()
+}
+
+export function setPantryItem(groupId: string, { ingredientId, grams }: PantryItemData) {
   if (!findIngredient(ingredientId)) return { error: 'Unknown ingredient' }
   db.insert(pantryItem)
-    .values({ ingredientId, grams })
-    .onConflictDoUpdate({ target: pantryItem.ingredientId, set: { grams } })
+    .values({ groupId, ingredientId, grams })
+    .onConflictDoUpdate({ target: [pantryItem.groupId, pantryItem.ingredientId], set: { grams } })
     .run()
   return {}
 }
 
-export function removePantryItem(ingredientId: string) {
-  db.delete(pantryItem).where(eq(pantryItem.ingredientId, ingredientId)).run()
+export function removePantryItem(groupId: string, ingredientId: string) {
+  db.delete(pantryItem)
+    .where(and(eq(pantryItem.groupId, groupId), eq(pantryItem.ingredientId, ingredientId)))
+    .run()
 }
 
-export function moveBoughtToPantry() {
+export function moveBoughtToPantry(groupId: string) {
   const bought = db
     .select()
     .from(shoppingItem)
-    .where(and(eq(shoppingItem.checked, true), isNotNull(shoppingItem.ingredientId)))
+    .where(
+      and(
+        eq(shoppingItem.groupId, groupId),
+        eq(shoppingItem.checked, true),
+        isNotNull(shoppingItem.ingredientId)
+      )
+    )
     .all()
   const { needs } = mergeNeeds(bought)
 
   db.transaction((tx) => {
     for (const need of needs) {
       tx.insert(pantryItem)
-        .values({ ingredientId: need.ingredientId, grams: need.grams })
+        .values({ groupId, ingredientId: need.ingredientId, grams: need.grams })
         .onConflictDoUpdate({
-          target: pantryItem.ingredientId,
+          target: [pantryItem.groupId, pantryItem.ingredientId],
           set: { grams: sql`${pantryItem.grams} + excluded.grams` },
         })
         .run()

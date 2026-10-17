@@ -6,7 +6,7 @@ import { pngBuffer, sessionFor, setupTestDb } from '@/test/db'
 
 vi.mock('@/lib/session', () => ({ getSession: vi.fn() }))
 
-const { db, schema, insertUser } = await setupTestDb()
+const { db, schema, insertUser, insertRecipe } = await setupTestDb()
 const { saveImage } = await import('@/lib/images')
 const { GET } = await import('./route')
 
@@ -18,6 +18,7 @@ const porridge = db
   .returning()
   .get()
 db.insert(schema.recipe).values({ title: 'Toast', createdById: user.id }).run()
+const othersRecipe = insertRecipe(insertUser().id, { title: 'Not mine' })
 
 beforeEach(() => {
   vi.mocked(getSession).mockResolvedValue(sessionFor(user))
@@ -32,7 +33,7 @@ async function body(query = ''): Promise<ExportDoc> {
 }
 
 describe('GET /api/export', () => {
-  it('returns every recipe as a version 1 export', async () => {
+  it('returns the user’s recipes as a version 1 export', async () => {
     const doc = await body()
     expect(doc.version).toBe(1)
     expect(doc.recipes.map((r) => r.title)).toEqual(['Porridge', 'Toast'])
@@ -59,6 +60,10 @@ describe('GET /api/export', () => {
   it('exports a single recipe when one is requested', async () => {
     const doc = await body(`?recipe=${porridge.id}`)
     expect(doc.recipes.map((r) => r.title)).toEqual(['Porridge'])
+  })
+
+  it('returns 404 for another user’s recipe', async () => {
+    expect((await get(`?recipe=${othersRecipe.id}`)).status).toBe(404)
   })
 
   it('returns 404 for an unknown recipe', async () => {

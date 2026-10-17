@@ -419,27 +419,129 @@ export const recipeNote = sqliteTable(
   (table) => [uniqueIndex('recipe_note_recipe_user_idx').on(table.recipeId, table.userId)]
 )
 
-export const shoppingItem = sqliteTable('shopping_item', {
+export const group = sqliteTable('group', {
   id: id(),
-  ingredientId: text('ingredient_id').references(() => ingredient.id, { onDelete: 'set null' }),
   name: text('name').notNull(),
-  grams: real('grams'),
-  quantity: real('quantity'),
-  unit: text('unit'),
-  recipeId: text('recipe_id').references(() => recipe.id, { onDelete: 'set null' }),
-  checked: integer('checked', { mode: 'boolean' }).default(false).notNull(),
-  createdAt: createdAt(),
-})
-
-export const pantryItem = sqliteTable('pantry_item', {
-  id: id(),
-  ingredientId: text('ingredient_id')
+  createdById: text('created_by_id')
     .notNull()
-    .unique()
-    .references(() => ingredient.id, { onDelete: 'cascade' }),
-  grams: real('grams'),
+    .references(() => user.id),
+  createdAt: createdAt(),
   updatedAt: updatedAt(),
 })
+
+export const groupMember = sqliteTable(
+  'group_member',
+  {
+    id: id(),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => group.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    role: text('role', { enum: ['admin', 'member'] }).notNull(),
+    joinedAt: integer('joined_at', { mode: 'timestamp_ms' }).default(nowMs).notNull(),
+  },
+  (table) => [
+    uniqueIndex('group_member_group_user_idx').on(table.groupId, table.userId),
+    index('group_member_user_idx').on(table.userId),
+  ]
+)
+
+export const groupInvite = sqliteTable(
+  'group_invite',
+  {
+    id: id(),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => group.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    createdById: text('created_by_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
+    createdAt: createdAt(),
+  },
+  (table) => [index('group_invite_group_idx').on(table.groupId)]
+)
+
+export const recipeShare = sqliteTable(
+  'recipe_share',
+  {
+    id: id(),
+    recipeId: text('recipe_id')
+      .notNull()
+      .references(() => recipe.id, { onDelete: 'cascade' }),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => group.id, { onDelete: 'cascade' }),
+    sharedById: text('shared_by_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex('recipe_share_recipe_group_idx').on(table.recipeId, table.groupId),
+    index('recipe_share_group_idx').on(table.groupId),
+  ]
+)
+
+export const mealPlanEntry = sqliteTable(
+  'meal_plan_entry',
+  {
+    id: id(),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => group.id, { onDelete: 'cascade' }),
+    date: text('date').notNull(),
+    slot: text('slot', { enum: ['breakfast', 'lunch', 'dinner', 'snack'] }).notNull(),
+    recipeId: text('recipe_id').references(() => recipe.id, { onDelete: 'set null' }),
+    servings: real('servings'),
+    note: text('note'),
+    position: integer('position').notNull(),
+    createdById: text('created_by_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (table) => [index('meal_plan_entry_group_date_idx').on(table.groupId, table.date)]
+)
+
+export const shoppingItem = sqliteTable(
+  'shopping_item',
+  {
+    id: id(),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => group.id, { onDelete: 'cascade' }),
+    ingredientId: text('ingredient_id').references(() => ingredient.id, { onDelete: 'set null' }),
+    name: text('name').notNull(),
+    grams: real('grams'),
+    quantity: real('quantity'),
+    unit: text('unit'),
+    recipeId: text('recipe_id').references(() => recipe.id, { onDelete: 'set null' }),
+    checked: integer('checked', { mode: 'boolean' }).default(false).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [index('shopping_item_group_idx').on(table.groupId)]
+)
+
+export const pantryItem = sqliteTable(
+  'pantry_item',
+  {
+    id: id(),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => group.id, { onDelete: 'cascade' }),
+    ingredientId: text('ingredient_id')
+      .notNull()
+      .references(() => ingredient.id, { onDelete: 'cascade' }),
+    grams: real('grams'),
+    updatedAt: updatedAt(),
+  },
+  (table) => [uniqueIndex('pantry_item_group_ingredient_idx').on(table.groupId, table.ingredientId)]
+)
 
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
@@ -453,6 +555,7 @@ export const userRelations = relations(user, ({ many }) => ({
   recipes: many(recipe),
   comments: many(recipeComment),
   notes: many(recipeNote),
+  groupMemberships: many(groupMember),
 }))
 
 export const sessionRelations = relations(session, ({ one, many }) => ({
@@ -528,7 +631,7 @@ export const ingredientRelations = relations(ingredient, ({ one, many }) => ({
   units: many(ingredientUnit),
   recipeIngredients: many(recipeIngredient),
   shoppingItems: many(shoppingItem),
-  pantryItem: one(pantryItem),
+  pantryItems: many(pantryItem),
 }))
 
 export const ingredientUnitRelations = relations(ingredientUnit, ({ one }) => ({
@@ -551,6 +654,8 @@ export const recipeRelations = relations(recipe, ({ one, many }) => ({
   comments: many(recipeComment),
   notes: many(recipeNote),
   shoppingItems: many(shoppingItem),
+  shares: many(recipeShare),
+  mealPlanEntries: many(mealPlanEntry),
 }))
 
 export const recipeIngredientRelations = relations(recipeIngredient, ({ one }) => ({
@@ -584,7 +689,40 @@ export const recipeNoteRelations = relations(recipeNote, ({ one }) => ({
   user: one(user, { fields: [recipeNote.userId], references: [user.id] }),
 }))
 
+export const groupRelations = relations(group, ({ one, many }) => ({
+  createdBy: one(user, { fields: [group.createdById], references: [user.id] }),
+  members: many(groupMember),
+  invites: many(groupInvite),
+  recipeShares: many(recipeShare),
+  shoppingItems: many(shoppingItem),
+  pantryItems: many(pantryItem),
+  mealPlanEntries: many(mealPlanEntry),
+}))
+
+export const groupMemberRelations = relations(groupMember, ({ one }) => ({
+  group: one(group, { fields: [groupMember.groupId], references: [group.id] }),
+  user: one(user, { fields: [groupMember.userId], references: [user.id] }),
+}))
+
+export const groupInviteRelations = relations(groupInvite, ({ one }) => ({
+  group: one(group, { fields: [groupInvite.groupId], references: [group.id] }),
+  createdBy: one(user, { fields: [groupInvite.createdById], references: [user.id] }),
+}))
+
+export const recipeShareRelations = relations(recipeShare, ({ one }) => ({
+  recipe: one(recipe, { fields: [recipeShare.recipeId], references: [recipe.id] }),
+  group: one(group, { fields: [recipeShare.groupId], references: [group.id] }),
+  sharedBy: one(user, { fields: [recipeShare.sharedById], references: [user.id] }),
+}))
+
+export const mealPlanEntryRelations = relations(mealPlanEntry, ({ one }) => ({
+  group: one(group, { fields: [mealPlanEntry.groupId], references: [group.id] }),
+  recipe: one(recipe, { fields: [mealPlanEntry.recipeId], references: [recipe.id] }),
+  createdBy: one(user, { fields: [mealPlanEntry.createdById], references: [user.id] }),
+}))
+
 export const shoppingItemRelations = relations(shoppingItem, ({ one }) => ({
+  group: one(group, { fields: [shoppingItem.groupId], references: [group.id] }),
   ingredient: one(ingredient, {
     fields: [shoppingItem.ingredientId],
     references: [ingredient.id],
@@ -593,5 +731,6 @@ export const shoppingItemRelations = relations(shoppingItem, ({ one }) => ({
 }))
 
 export const pantryItemRelations = relations(pantryItem, ({ one }) => ({
+  group: one(group, { fields: [pantryItem.groupId], references: [group.id] }),
   ingredient: one(ingredient, { fields: [pantryItem.ingredientId], references: [ingredient.id] }),
 }))

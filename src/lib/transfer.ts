@@ -6,13 +6,11 @@ import {
   image,
   ingredient,
   ingredientUnit,
-  pantryItem,
   recipe,
   recipeComment,
   recipeIngredient,
   recipeNote,
   recipeStep,
-  shoppingItem,
 } from '@/db/schema'
 import { imagePath } from '@/lib/images'
 import { type ExportDoc, exportSchema, type ImportMode } from '@/lib/validation/transfer'
@@ -29,14 +27,16 @@ export function parseExport(json: unknown) {
 }
 
 export async function buildExport({
+  userId,
   recipeIds,
   includeImages,
 }: {
+  userId: string
   recipeIds?: string[]
   includeImages: boolean
 }): Promise<ExportDoc> {
   const recipes = await db.query.recipe.findMany({
-    where: recipeIds && inArray(recipe.id, recipeIds),
+    where: and(eq(recipe.createdById, userId), recipeIds && inArray(recipe.id, recipeIds)),
     columns: { createdById: false, createdAt: false, updatedAt: false },
     orderBy: [asc(recipe.title), asc(recipe.id)],
     with: {
@@ -49,7 +49,10 @@ export async function buildExport({
         orderBy: asc(recipeComment.createdAt),
         with: { user: { columns: { name: true } } },
       },
-      notes: { orderBy: asc(recipeNote.updatedAt), with: { user: { columns: { name: true } } } },
+      notes: {
+        where: eq(recipeNote.userId, userId),
+        with: { user: { columns: { name: true } } },
+      },
     },
   })
 
@@ -127,18 +130,23 @@ export async function applyImport(
   const { counts, removedImageIds } = db.transaction((tx) => {
     const removedImageIds: string[] = []
     if (mode === 'replace') {
-      removedImageIds.push(
-        ...tx
-          .select({ id: image.id })
-          .from(image)
-          .all()
-          .map((row) => row.id)
-      )
-      tx.delete(shoppingItem).run()
-      tx.delete(pantryItem).run()
-      tx.delete(recipe).run()
-      tx.delete(image).run()
-      tx.delete(ingredient).run()
+      const owned = tx
+        .select({ id: recipe.id })
+        .from(recipe)
+        .where(eq(recipe.createdById, userId))
+        .all()
+        .map((row) => row.id)
+      if (owned.length) {
+        removedImageIds.push(
+          ...tx
+            .select({ id: image.id })
+            .from(image)
+            .where(inArray(image.recipeId, owned))
+            .all()
+            .map((row) => row.id)
+        )
+        tx.delete(recipe).where(inArray(recipe.id, owned)).run()
+      }
     }
 
     const library = tx
@@ -170,32 +178,41 @@ export async function applyImport(
       ingredientIds.set(values.id, id)
     }
 
-    const storedImageIds = new Set(
+    const imageOwners = new Map(
       tx
-        .select({ id: image.id })
+        .select({ id: image.id, recipeId: image.recipeId })
         .from(image)
         .all()
-        .map((row) => row.id)
+        .map((row) => [row.id, row.recipeId])
     )
-    const newImages = images.filter((img) => !storedImageIds.has(img.id))
+    const newImages = images.filter((img) => !imageOwners.has(img.id))
     if (newImages.length) {
       tx.insert(image)
         .values(newImages.map(({ id, width, height }) => ({ id, width, height })))
         .run()
+      for (const img of newImages) imageOwners.set(img.id, null)
     }
-    const availableImageIds = new Set([...storedImageIds, ...newImages.map((img) => img.id)])
-    const imageRef = (id: string | null) => (id && availableImageIds.has(id) ? id : null)
 
-    for (const { id, ingredients: lines, steps, comments, notes, ...fields } of doc.recipes) {
-      const values = { ...fields, coverImageId: imageRef(fields.coverImageId) }
-      const exists = tx.select({ id: recipe.id }).from(recipe).where(eq(recipe.id, id)).get()
-      if (exists) {
+    for (const entry of doc.recipes) {
+      const { ingredients: lines, steps, comments, notes, ...fields } = entry
+      const existing = tx
+        .select({ createdById: recipe.createdById })
+        .from(recipe)
+        .where(eq(recipe.id, entry.id))
+        .get()
+      const id = existing && existing.createdById !== userId ? crypto.randomUUID() : entry.id
+      const imageRef = (ref: string | null) => {
+        const owner = ref ? imageOwners.get(ref) : undefined
+        return ref && (owner === null || owner === id) ? ref : null
+      }
+      const values = { ...fields, id, coverImageId: imageRef(fields.coverImageId) }
+      if (existing && id === entry.id) {
         tx.update(recipe).set(values).where(eq(recipe.id, id)).run()
         tx.delete(recipeIngredient).where(eq(recipeIngredient.recipeId, id)).run()
         tx.delete(recipeStep).where(eq(recipeStep.recipeId, id)).run()
       } else {
         tx.insert(recipe)
-          .values({ id, ...values, createdById: userId })
+          .values({ ...values, createdById: userId })
           .run()
       }
 
@@ -225,6 +242,7 @@ export async function applyImport(
           .set({ recipeId: id })
           .where(and(inArray(image.id, referenced), isNull(image.recipeId)))
           .run()
+        for (const ref of referenced) imageOwners.set(ref, id)
       }
       const unused = tx
         .select({ id: image.id })
@@ -235,6 +253,7 @@ export async function applyImport(
         .filter((imageId) => !referenced.includes(imageId))
       if (unused.length) {
         tx.delete(image).where(inArray(image.id, unused)).run()
+        for (const ref of unused) imageOwners.delete(ref)
         removedImageIds.push(...unused)
       }
 

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { ExportDoc } from '@/lib/validation/transfer'
 import { pngBuffer, setupTestDb } from '@/test/db'
 
-const { db, schema, insertUser, insertIngredient } = await setupTestDb()
+const { db, schema, insertUser, insertIngredient, insertGroup } = await setupTestDb()
 const { imagePath, saveImage } = await import('@/lib/images')
 const { applyImport, buildExport, ImportError, importExport, parseExport } =
   await import('./transfer')
@@ -215,14 +215,14 @@ function noteOf(recipeId: string, userId: string) {
 
 describe('buildExport', () => {
   it('stamps the document with version 1 and the export time', async () => {
-    const doc = await buildExport({ includeImages: false })
+    const doc = await buildExport({ userId: ana.id, includeImages: false })
     expect(doc.version).toBe(1)
     expect(Date.parse(doc.exportedAt)).toBeGreaterThan(Date.now() - 60_000)
   })
 
   it('exports every ingredient in the library with its units', async () => {
     const { oats } = await seed()
-    const doc = await buildExport({ includeImages: false })
+    const doc = await buildExport({ userId: ana.id, includeImages: false })
     expect(doc.ingredients.map((i) => i.name)).toEqual(['Milk', 'Oats', 'Salt'])
     expect(doc.ingredients[1]).toEqual({
       id: oats.id,
@@ -245,7 +245,7 @@ describe('buildExport', () => {
 
   it('exports the recipe fields', async () => {
     const { porridge, cover } = await seed()
-    const [exportedPorridge] = (await buildExport({ includeImages: false })).recipes
+    const [exportedPorridge] = (await buildExport({ userId: ana.id, includeImages: false })).recipes
     expect(exportedPorridge).toMatchObject({
       id: porridge.id,
       title: 'Porridge',
@@ -259,7 +259,7 @@ describe('buildExport', () => {
 
   it('exports ingredient lines in position order', async () => {
     const { oats, milk } = await seed()
-    const [exportedPorridge] = (await buildExport({ includeImages: false })).recipes
+    const [exportedPorridge] = (await buildExport({ userId: ana.id, includeImages: false })).recipes
     expect(exportedPorridge.ingredients).toEqual([
       { ingredientId: oats.id, quantity: 1, unit: 'cup', grams: 90, groupName: null, position: 0 },
       {
@@ -275,7 +275,7 @@ describe('buildExport', () => {
 
   it('exports steps in position order with their image ids', async () => {
     const { stepImage } = await seed()
-    const [exportedPorridge] = (await buildExport({ includeImages: false })).recipes
+    const [exportedPorridge] = (await buildExport({ userId: ana.id, includeImages: false })).recipes
     expect(exportedPorridge.steps).toEqual([
       { text: 'Simmer', imageId: stepImage.id, position: 0 },
       { text: 'Serve', imageId: null, position: 1 },
@@ -284,7 +284,7 @@ describe('buildExport', () => {
 
   it('exports comments with the author name', async () => {
     await seed()
-    const [exportedPorridge] = (await buildExport({ includeImages: false })).recipes
+    const [exportedPorridge] = (await buildExport({ userId: ana.id, includeImages: false })).recipes
     expect(exportedPorridge.comments).toEqual([
       { authorName: 'Ana', text: 'Delicious', createdAt: '2026-03-01T08:00:00.000Z' },
     ])
@@ -292,38 +292,58 @@ describe('buildExport', () => {
 
   it('exports notes with the author name', async () => {
     await seed()
-    const [exportedPorridge] = (await buildExport({ includeImages: false })).recipes
+    const [exportedPorridge] = (await buildExport({ userId: ana.id, includeImages: false })).recipes
     expect(exportedPorridge.notes).toEqual([
       { authorName: 'Ana', text: 'Less salt', updatedAt: '2026-03-02T08:00:00.000Z' },
     ])
   })
 
-  it('exports every recipe sorted by title', async () => {
+  it('leaves out other users’ notes', async () => {
+    const { porridge } = await seed()
+    db.insert(schema.recipeNote)
+      .values({ recipeId: porridge.id, userId: ben.id, text: 'Ben’s' })
+      .run()
+    const [exportedPorridge] = (await buildExport({ userId: ana.id, includeImages: false })).recipes
+    expect(exportedPorridge.notes.map((n) => n.text)).toEqual(['Less salt'])
+  })
+
+  it('exports only the user’s own recipes sorted by title', async () => {
     await seed()
-    const doc = await buildExport({ includeImages: false })
-    expect(doc.recipes.map((r) => r.title)).toEqual(['Porridge', 'Toast'])
+    db.insert(schema.recipe).values({ title: 'Apple pie', createdById: ana.id }).run()
+    const doc = await buildExport({ userId: ana.id, includeImages: false })
+    expect(doc.recipes.map((r) => r.title)).toEqual(['Apple pie', 'Porridge'])
   })
 
   it('limits the export to the requested recipes', async () => {
     const { toast } = await seed()
-    const doc = await buildExport({ recipeIds: [toast.id], includeImages: false })
+    const doc = await buildExport({ userId: ben.id, recipeIds: [toast.id], includeImages: false })
     expect(doc.recipes.map((r) => r.title)).toEqual(['Toast'])
+  })
+
+  it('leaves out a requested recipe owned by someone else', async () => {
+    const { toast } = await seed()
+    const doc = await buildExport({ userId: ana.id, recipeIds: [toast.id], includeImages: false })
+    expect(doc.recipes).toEqual([])
   })
 
   it('only exports the ingredients the requested recipes use', async () => {
     const { porridge } = await seed()
-    const doc = await buildExport({ recipeIds: [porridge.id], includeImages: false })
+    const doc = await buildExport({
+      userId: ana.id,
+      recipeIds: [porridge.id],
+      includeImages: false,
+    })
     expect(doc.ingredients.map((i) => i.name)).toEqual(['Milk', 'Oats'])
   })
 
   it('leaves images out unless asked to include them', async () => {
     await seed()
-    expect((await buildExport({ includeImages: false })).images).toBeUndefined()
+    expect((await buildExport({ userId: ana.id, includeImages: false })).images).toBeUndefined()
   })
 
   it('includes the cover and step images as base64 WebP', async () => {
     const { cover, stepImage } = await seed()
-    const { images = [] } = await buildExport({ includeImages: true })
+    const { images = [] } = await buildExport({ userId: ana.id, includeImages: true })
     expect(images.map((img) => img.id).sort()).toEqual([cover.id, stepImage.id].sort())
     const exportedCover = images.find((img) => img.id === cover.id)
     expect(exportedCover).toMatchObject({ width: 40, height: 20 })
@@ -334,13 +354,13 @@ describe('buildExport', () => {
 
   it('only includes images of the requested recipes', async () => {
     const { toast } = await seed()
-    const doc = await buildExport({ recipeIds: [toast.id], includeImages: true })
+    const doc = await buildExport({ userId: ben.id, recipeIds: [toast.id], includeImages: true })
     expect(doc.images).toEqual([])
   })
 
   it('produces a document that passes validation', async () => {
     await seed()
-    const doc = await buildExport({ includeImages: true })
+    const doc = await buildExport({ userId: ana.id, includeImages: true })
     expect(parseExport(JSON.parse(JSON.stringify(doc)))).toEqual({ doc })
   })
 })
@@ -372,26 +392,26 @@ describe('parseExport', () => {
 describe('applyImport round trip', () => {
   it('restores everything after export, wipe and merge import', async () => {
     await seed()
-    const before = await exported({ includeImages: true })
-    const doc = await buildExport({ includeImages: true })
+    const before = await exported({ userId: ana.id, includeImages: true })
+    const doc = await buildExport({ userId: ana.id, includeImages: true })
     wipe()
     await applyImport(JSON.parse(JSON.stringify(doc)), { userId: ana.id, mode: 'merge' })
-    expect(await exported({ includeImages: true })).toEqual(before)
+    expect(await exported({ userId: ana.id, includeImages: true })).toEqual(before)
   })
 
   it('restores everything after export and replace import', async () => {
     await seed()
-    const before = await exported({ includeImages: true })
-    const doc = await buildExport({ includeImages: true })
-    insertIngredient(ana.id, { name: 'Leftover' })
+    const before = await exported({ userId: ana.id, includeImages: true })
+    const doc = await buildExport({ userId: ana.id, includeImages: true })
+    db.insert(schema.recipe).values({ title: 'Leftover', createdById: ana.id }).run()
     await applyImport(doc, { userId: ana.id, mode: 'replace' })
-    expect(await exported({ includeImages: true })).toEqual(before)
+    expect(await exported({ userId: ana.id, includeImages: true })).toEqual(before)
   })
 
   it('restores the image files byte for byte', async () => {
     const { cover } = await seed()
     const original = fs.readFileSync(imagePath(cover.id))
-    const doc = await buildExport({ includeImages: true })
+    const doc = await buildExport({ userId: ana.id, includeImages: true })
     wipe()
     await applyImport(doc, { userId: ana.id, mode: 'merge' })
     expect(fs.readFileSync(imagePath(cover.id))).toEqual(original)
@@ -399,7 +419,7 @@ describe('applyImport round trip', () => {
 
   it('attaches the restored images to their recipe', async () => {
     const { porridge, cover, stepImage } = await seed()
-    const doc = await buildExport({ includeImages: true })
+    const doc = await buildExport({ userId: ana.id, includeImages: true })
     wipe()
     await applyImport(doc, { userId: ana.id, mode: 'merge' })
     const owners = db.select({ recipeId: schema.image.recipeId }).from(schema.image).all()
@@ -409,11 +429,11 @@ describe('applyImport round trip', () => {
 
   it('returns how many recipes, new ingredients and images it imported', async () => {
     await seed()
-    const doc = await buildExport({ includeImages: true })
+    const doc = await buildExport({ userId: ana.id, includeImages: true })
     wipe()
     expect(await applyImport(doc, { userId: ana.id, mode: 'merge' })).toEqual({
       ingredients: 3,
-      recipes: 2,
+      recipes: 1,
       images: 2,
     })
   })
@@ -448,11 +468,30 @@ describe('applyImport merge', () => {
     expect(linesOf(porridge.id).map((l) => l.ingredientId)).toEqual([salt.id])
   })
 
-  it('keeps the original creator of an updated recipe', async () => {
+  it('leaves another user’s recipe with the same id untouched', async () => {
     const { toast } = await seed()
     const entry = recipeEntry({ id: toast.id, title: 'French toast' })
     await applyImport(docWith({ recipes: [entry] }), { userId: ana.id, mode: 'merge' })
-    expect(allRecipes().find((r) => r.id === toast.id)?.createdById).toBe(ben.id)
+    expect(allRecipes().find((r) => r.id === toast.id)).toMatchObject({
+      title: 'Toast',
+      createdById: ben.id,
+    })
+  })
+
+  it('imports a recipe whose id belongs to another user as a new recipe of the importer', async () => {
+    const { toast } = await seed()
+    const entry = recipeEntry({ id: toast.id, title: 'French toast' })
+    await applyImport(docWith({ recipes: [entry] }), { userId: ana.id, mode: 'merge' })
+    expect(allRecipes().find((r) => r.title === 'French toast')).toMatchObject({
+      createdById: ana.id,
+    })
+  })
+
+  it('drops references to images attached to another user’s recipe', async () => {
+    const { cover } = await seed()
+    const entry = recipeEntry({ coverImageId: cover.id })
+    await applyImport(docWith({ recipes: [entry] }), { userId: ben.id, mode: 'merge' })
+    expect(allRecipes().find((r) => r.id === entry.id)?.coverImageId).toBeNull()
   })
 
   it('deletes the row of an image the updated recipe no longer references', async () => {
@@ -585,7 +624,7 @@ describe('applyImport merge', () => {
   it('keeps existing comments on an updated recipe', async () => {
     const { porridge } = await seed()
     const entry = recipeEntry({ id: porridge.id, title: 'Porridge' })
-    await applyImport(docWith({ recipes: [entry] }), { userId: ben.id, mode: 'merge' })
+    await applyImport(docWith({ recipes: [entry] }), { userId: ana.id, mode: 'merge' })
     expect(commentsOf(porridge.id).map((c) => c.text)).toEqual(['Delicious'])
   })
 
@@ -646,14 +685,14 @@ describe('applyImport merge', () => {
 
   it('skips images that are already stored', async () => {
     const { porridge } = await seed()
-    const doc = await buildExport({ recipeIds: [porridge.id], includeImages: true })
+    const doc = await buildExport({ userId: ana.id, recipeIds: [porridge.id], includeImages: true })
     expect(await applyImport(doc, { userId: ana.id, mode: 'merge' })).toMatchObject({ images: 0 })
     expect(db.select().from(schema.image).all()).toHaveLength(2)
   })
 
   it('rewrites a stored image whose file went missing', async () => {
     const { porridge, cover } = await seed()
-    const doc = await buildExport({ recipeIds: [porridge.id], includeImages: true })
+    const doc = await buildExport({ userId: ana.id, recipeIds: [porridge.id], includeImages: true })
     fs.rmSync(imagePath(cover.id))
     await applyImport(doc, { userId: ana.id, mode: 'merge' })
     expect(fs.existsSync(imagePath(cover.id))).toBe(true)
@@ -661,7 +700,11 @@ describe('applyImport merge', () => {
 
   it('keeps image references to images that are already stored', async () => {
     const { porridge, cover } = await seed()
-    const doc = await buildExport({ recipeIds: [porridge.id], includeImages: false })
+    const doc = await buildExport({
+      userId: ana.id,
+      recipeIds: [porridge.id],
+      includeImages: false,
+    })
     await applyImport(doc, { userId: ana.id, mode: 'merge' })
     expect(allRecipes().find((r) => r.id === porridge.id)?.coverImageId).toBe(cover.id)
   })
@@ -679,13 +722,26 @@ describe('applyImport merge', () => {
 })
 
 describe('applyImport replace', () => {
-  it('removes recipes and ingredients that are not in the file', async () => {
+  it('removes the user’s recipes that are not in the file', async () => {
     await seed()
-    const oats = ingredientEntry({ name: 'Spelt' })
-    const doc = docWith({ ingredients: [oats], recipes: [recipeEntry()] })
-    await applyImport(doc, { userId: ana.id, mode: 'replace' })
-    expect(allRecipes().map((r) => r.title)).toEqual(['Pancakes'])
-    expect(allIngredients().map((i) => i.name)).toEqual(['Spelt'])
+    await applyImport(docWith({ recipes: [recipeEntry()] }), { userId: ana.id, mode: 'replace' })
+    expect(
+      allRecipes()
+        .filter((r) => r.createdById === ana.id)
+        .map((r) => r.title)
+    ).toEqual(['Pancakes'])
+  })
+
+  it('keeps other users’ recipes', async () => {
+    const { toast } = await seed()
+    await applyImport(docWith({}), { userId: ana.id, mode: 'replace' })
+    expect(allRecipes().map((r) => r.id)).toEqual([toast.id])
+  })
+
+  it('keeps the ingredient library', async () => {
+    await seed()
+    await applyImport(docWith({}), { userId: ana.id, mode: 'replace' })
+    expect(allIngredients()).toHaveLength(3)
   })
 
   it('removes comments and notes of the old recipes', async () => {
@@ -695,13 +751,14 @@ describe('applyImport replace', () => {
     expect(db.select().from(schema.recipeNote).all()).toEqual([])
   })
 
-  it('clears the shopping list and the pantry', async () => {
+  it('leaves the shopping list and the pantry alone', async () => {
     const { oats } = await seed()
-    db.insert(schema.shoppingItem).values({ name: 'Oats', ingredientId: oats.id }).run()
-    db.insert(schema.pantryItem).values({ ingredientId: oats.id, grams: 500 }).run()
+    const { id: groupId } = insertGroup('Home', [ana.id])
+    db.insert(schema.shoppingItem).values({ groupId, name: 'Oats', ingredientId: oats.id }).run()
+    db.insert(schema.pantryItem).values({ groupId, ingredientId: oats.id, grams: 500 }).run()
     await applyImport(docWith({}), { userId: ana.id, mode: 'replace' })
-    expect(db.select().from(schema.shoppingItem).all()).toEqual([])
-    expect(db.select().from(schema.pantryItem).all()).toEqual([])
+    expect(db.select().from(schema.shoppingItem).all()).toHaveLength(1)
+    expect(db.select().from(schema.pantryItem).all()).toHaveLength(1)
   })
 
   it('deletes the old image rows and files', async () => {
@@ -712,24 +769,24 @@ describe('applyImport replace', () => {
     expect(fs.existsSync(imagePath(stepImage.id))).toBe(false)
   })
 
-  it('also deletes images no recipe uses', async () => {
-    const orphan = await saveImage(await pngBuffer())
+  it('keeps pending uploads no recipe uses yet', async () => {
+    const pending = await saveImage(await pngBuffer())
     await applyImport(docWith({}), { userId: ana.id, mode: 'replace' })
-    expect(fs.existsSync(imagePath(orphan.id))).toBe(false)
+    expect(fs.existsSync(imagePath(pending.id))).toBe(true)
   })
 
   it('drops image references when the file has no images', async () => {
     const { porridge } = await seed()
-    const doc = await buildExport({ includeImages: false })
+    const doc = await buildExport({ userId: ana.id, includeImages: false })
     await applyImport(doc, { userId: ana.id, mode: 'replace' })
     expect(allRecipes().find((r) => r.id === porridge.id)?.coverImageId).toBeNull()
   })
 
-  it('counts every ingredient in the file as new', async () => {
+  it('reuses library ingredients instead of counting them as new', async () => {
     const { oats } = await seed()
     const doc = docWith({ ingredients: [ingredientEntry({ id: oats.id })] })
     expect(await applyImport(doc, { userId: ana.id, mode: 'replace' })).toMatchObject({
-      ingredients: 1,
+      ingredients: 0,
     })
   })
 })
@@ -744,11 +801,11 @@ describe('applyImport failures', () => {
 
   it('rolls back the database when an import fails', async () => {
     await seed()
-    const before = await exported({ includeImages: false })
+    const before = await exported({ userId: ana.id, includeImages: false })
     const recipes = [recipeEntry(), recipeEntry({ ingredients: [line(crypto.randomUUID())] })]
     const doc = docWith({ ingredients: [ingredientEntry({ name: 'Spelt' })], recipes })
     await expect(applyImport(doc, { userId: ana.id, mode: 'replace' })).rejects.toThrow(ImportError)
-    expect(await exported({ includeImages: false })).toEqual(before)
+    expect(await exported({ userId: ana.id, includeImages: false })).toEqual(before)
   })
 
   it('keeps the old image files when a replace import fails', async () => {

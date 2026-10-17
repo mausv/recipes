@@ -6,6 +6,7 @@ import { nextCookies } from 'better-auth/next-js'
 import { jwt } from 'better-auth/plugins'
 import { db } from '@/db'
 import * as schema from '@/db/schema'
+import { createGroup, personalGroupName } from './groups'
 import { assertValidInviteCode } from './invite-code'
 
 const baseURL = process.env.BETTER_AUTH_URL
@@ -19,6 +20,15 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: true },
   session: { cookieCache: { enabled: true, maxAge: 5 * 60 } },
   advanced: { database: { generateId: 'uuid' } },
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          createGroup(user.id, personalGroupName(user.name))
+        },
+      },
+    },
+  },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       if (ctx.path === '/sign-up/email') {
