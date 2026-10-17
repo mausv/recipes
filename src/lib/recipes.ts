@@ -21,7 +21,7 @@ import type { RecipeData } from './validation/recipe'
 
 export type RecipeScope = 'all' | 'mine' | 'group'
 
-function ownerError(userId: string, recipeId: string) {
+export function ownerError(userId: string, recipeId: string) {
   if (canEditRecipe(userId, recipeId)) return undefined
   return canViewRecipe(userId, recipeId)
     ? 'Only the owner can change this recipe'

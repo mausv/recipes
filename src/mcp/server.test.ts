@@ -7,6 +7,7 @@ import { setupTestDb } from '@/test/db'
 
 const { db, schema, insertUser, insertGroup, insertRecipe, shareInto } = await setupTestDb()
 const { createMcpServer } = await import('./server')
+const { localDate, mondayOf } = await import('@/lib/meal-plan')
 
 const user = insertUser()
 const friend = insertUser()
@@ -21,26 +22,37 @@ function itemIds(where: SQL) {
     .map((row) => row.id)
 }
 
-const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
-await createMcpServer(user.id).connect(serverTransport)
-const client = new Client({ name: 'test', version: '1.0.0' })
-await client.connect(clientTransport)
+async function connect(userId: string) {
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+  await createMcpServer(userId).connect(serverTransport)
+  const client = new Client({ name: 'test', version: '1.0.0' })
+  await client.connect(clientTransport)
 
-async function call(name: string, args: Record<string, unknown> = {}) {
-  const result = await client.callTool({ name, arguments: args })
-  if (result.isError) throw new Error(JSON.stringify(result.content))
-  return z.record(z.string(), z.unknown()).parse(result.structuredContent)
+  async function call(name: string, args: Record<string, unknown> = {}) {
+    const result = await client.callTool({ name, arguments: args })
+    if (result.isError) throw new Error(JSON.stringify(result.content))
+    return z.record(z.string(), z.unknown()).parse(result.structuredContent)
+  }
+
+  async function create(name: string, args: Record<string, unknown>) {
+    return z.string().parse((await call(name, args)).id)
+  }
+
+  async function callError(name: string, args: Record<string, unknown> = {}) {
+    const result = await client.callTool({ name, arguments: args })
+    expect(result.isError).toBe(true)
+    return result.content
+  }
+
+  return { client, call, create, callError }
 }
 
-async function create(name: string, args: Record<string, unknown>) {
-  return z.string().parse((await call(name, args)).id)
-}
+const { client, call, create, callError } = await connect(user.id)
 
-async function callError(name: string, args: Record<string, unknown> = {}) {
-  const result = await client.callTool({ name, arguments: args })
-  expect(result.isError).toBe(true)
-  return result.content
-}
+const cook = insertUser()
+const kitchen = insertGroup('Kitchen', [cook.id])
+const cabin = insertGroup('Cabin', [cook.id, friend.id])
+const asCook = await connect(cook.id)
 
 const oatsInput = {
   name: 'Oats',
@@ -63,32 +75,51 @@ describe('mcp server', () => {
     expect(client.getInstructions()).toContain('ml, l, tsp, tbsp, cup, fl oz')
   })
 
+  it('tells Claude to call list_groups when the user has several groups', () => {
+    expect(client.getInstructions()).toContain('call list_groups first')
+  })
+
   it('lists every tool', async () => {
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
       'add_comment',
+      'add_meal',
       'add_recipe_to_shopping_list',
       'add_shopping_item',
+      'add_week_to_shopping_list',
       'check_shopping_items',
       'clear_checked_items',
       'clear_shopping_list',
+      'copy_recipe',
+      'create_group',
       'create_ingredient',
+      'create_invite_link',
       'create_recipe',
       'delete_ingredient',
       'delete_recipe',
       'get_ingredient',
+      'get_month_plan',
       'get_recipe',
       'get_shopping_list',
+      'get_week_plan',
+      'leave_group',
+      'list_groups',
+      'list_recipe_shares',
       'list_recipes',
       'list_tags',
       'lookup_nutrition',
       'move_bought_to_pantry',
+      'move_meal',
+      'remove_meal',
       'remove_pantry_item',
       'remove_shopping_items',
       'save_note',
       'search_ingredients',
       'set_pantry_item',
+      'share_recipe',
+      'unshare_recipe',
       'update_ingredient',
+      'update_meal',
       'update_recipe',
     ])
   })
@@ -309,7 +340,7 @@ describe('mcp server', () => {
     })
   })
 
-  it('keeps the shopping list in the user’s first group', async () => {
+  it('uses the caller’s only group when groupId is omitted', async () => {
     await call('add_shopping_item', { name: 'Candles' })
     expect(itemIds(eq(schema.shoppingItem.groupId, home.id))).toHaveLength(1)
     await call('clear_shopping_list')
@@ -332,6 +363,37 @@ describe('mcp server', () => {
     expect(await callError('delete_recipe', { id: shared.id })).toEqual([
       { type: 'text', text: 'Only the owner can change this recipe' },
     ])
+  })
+
+  it('marks list_recipes results with their owner and whether they are yours', async () => {
+    const mine = insertRecipe(user.id, { title: 'Ownership soup' })
+    const theirs = insertRecipe(friend.id, { title: 'Ownership stew' })
+    shareInto(theirs.id, home.id, friend.id)
+    const { recipes } = await call('list_recipes', { q: 'Ownership' })
+    expect(recipes).toHaveLength(2)
+    expect(recipes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: theirs.id, ownerName: 'Ana', isMine: false }),
+        expect.objectContaining({ id: mine.id, ownerName: 'Ana', isMine: true }),
+      ])
+    )
+  })
+
+  it('lists only your own recipes with scope mine', async () => {
+    const mine = insertRecipe(user.id, { title: 'Scope soup' })
+    shareInto(insertRecipe(friend.id, { title: 'Scope stew' }).id, home.id, friend.id)
+    expect(await call('list_recipes', { q: 'Scope', scope: 'mine' })).toMatchObject({
+      recipes: [{ id: mine.id }],
+    })
+  })
+
+  it('lists only recipes shared into the group with scope group', async () => {
+    insertRecipe(user.id, { title: 'Group soup' })
+    const shared = insertRecipe(friend.id, { title: 'Group stew' })
+    shareInto(shared.id, home.id, friend.id)
+    expect(await call('list_recipes', { q: 'Group s', scope: 'group' })).toMatchObject({
+      recipes: [{ id: shared.id }],
+    })
   })
 
   it('looks up nutrition from Open Food Facts', async () => {
@@ -367,5 +429,209 @@ describe('mcp server', () => {
     })
     expect(String(fetch.mock.calls[0][0])).toContain('search_terms=oats')
     vi.unstubAllGlobals()
+  })
+})
+
+describe('mcp group scoping', () => {
+  it('lists the caller’s groups with role and member count', async () => {
+    expect(await asCook.call('list_groups')).toEqual({
+      groups: [
+        { id: kitchen.id, name: 'Kitchen', role: 'admin', memberCount: 1 },
+        { id: cabin.id, name: 'Cabin', role: 'admin', memberCount: 2 },
+      ],
+    })
+  })
+
+  it('asks for a groupId listing the groups when the caller has several', async () => {
+    expect(await asCook.callError('get_shopping_list')).toEqual([
+      {
+        type: 'text',
+        text: `You are in several groups; pass groupId. Groups: Kitchen (${kitchen.id}), Cabin (${cabin.id})`,
+      },
+    ])
+  })
+
+  it('uses the given groupId when the caller is a member', async () => {
+    await asCook.call('add_shopping_item', { groupId: cabin.id, name: 'Firewood' })
+    expect(await asCook.call('get_shopping_list', { groupId: cabin.id })).toMatchObject({
+      freeText: [{ name: 'Firewood' }],
+    })
+    expect(await asCook.call('get_shopping_list', { groupId: kitchen.id })).toMatchObject({
+      freeText: [],
+    })
+  })
+
+  it('refuses a groupId the caller is not a member of', async () => {
+    expect(await asCook.callError('get_shopping_list', { groupId: home.id })).toEqual([
+      { type: 'text', text: 'Not a member of that group' },
+    ])
+  })
+
+  it('refuses to add to another group’s shopping list', async () => {
+    await asCook.callError('add_shopping_item', { groupId: home.id, name: 'Intruder' })
+    expect(itemIds(eq(schema.shoppingItem.name, 'Intruder'))).toEqual([])
+  })
+
+  it('refuses to add a meal to another group’s plan', async () => {
+    const recipeId = insertRecipe(cook.id).id
+    await asCook.callError('add_meal', {
+      groupId: home.id,
+      date: '2026-10-12',
+      slot: 'dinner',
+      recipeId,
+    })
+    expect(
+      db.select().from(schema.mealPlanEntry).where(eq(schema.mealPlanEntry.groupId, home.id)).all()
+    ).toEqual([])
+  })
+
+  it('refuses to remove another group’s meal plan entry', async () => {
+    const { id } = await call('add_meal', { date: '2026-10-12', slot: 'lunch', note: 'Leftovers' })
+    expect(await asCook.callError('remove_meal', { groupId: kitchen.id, id })).toEqual([
+      { type: 'text', text: 'Entry not found' },
+    ])
+    await call('remove_meal', { id })
+  })
+
+  it('lists my recipes with scope mine without asking for a group', async () => {
+    const own = insertRecipe(cook.id, { title: 'Cook’s curry' })
+    expect(await asCook.call('list_recipes', { q: 'curry', scope: 'mine' })).toMatchObject({
+      recipes: [{ id: own.id, isMine: true }],
+    })
+  })
+
+  it('shares a recipe into a group and lists the share', async () => {
+    const recipeId = insertRecipe(cook.id).id
+    expect(await asCook.call('share_recipe', { recipeId, groupId: cabin.id })).toEqual({})
+    expect(await asCook.call('list_recipe_shares', { recipeId })).toEqual({
+      groups: [{ groupId: cabin.id, name: 'Cabin' }],
+    })
+  })
+
+  it('unshares a recipe from a group', async () => {
+    const recipeId = insertRecipe(cook.id).id
+    shareInto(recipeId, cabin.id, cook.id)
+    expect(await asCook.call('unshare_recipe', { recipeId, groupId: cabin.id })).toEqual({})
+    expect(await asCook.call('list_recipe_shares', { recipeId })).toEqual({ groups: [] })
+  })
+
+  it('refuses to list the shares of someone else’s recipe', async () => {
+    const recipeId = insertRecipe(friend.id).id
+    shareInto(recipeId, cabin.id, friend.id)
+    expect(await asCook.callError('list_recipe_shares', { recipeId })).toEqual([
+      { type: 'text', text: 'Only the owner can change this recipe' },
+    ])
+  })
+
+  it('copies a shared recipe into a new recipe of your own', async () => {
+    const source = insertRecipe(friend.id, { title: 'Cabin chili' })
+    shareInto(source.id, cabin.id, friend.id)
+    const id = await asCook.create('copy_recipe', { recipeId: source.id })
+    expect(id).not.toBe(source.id)
+    const { recipes } = await asCook.call('list_recipes', { groupId: cabin.id, q: 'Cabin chili' })
+    expect(recipes).toHaveLength(2)
+    expect(recipes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id, isMine: true }),
+        expect.objectContaining({ id: source.id, isMine: false }),
+      ])
+    )
+  })
+
+  it('creates a group with the caller as admin', async () => {
+    const asNewcomer = await connect(insertUser().id)
+    const { id } = await asNewcomer.call('create_group', { name: 'Allotment' })
+    expect(await asNewcomer.call('list_groups')).toEqual({
+      groups: [{ id, name: 'Allotment', role: 'admin', memberCount: 1 }],
+    })
+  })
+
+  it('creates an invite link under BETTER_AUTH_URL', async () => {
+    const { url } = await asCook.call('create_invite_link', { groupId: kitchen.id })
+    expect(url).toMatch(/^http:\/\/localhost:3000\/join\/[\w-]+$/)
+  })
+
+  it('leaves a group', async () => {
+    const asLeaver = await connect(insertUser().id)
+    const { id } = await asLeaver.call('create_group', { name: 'Temporary' })
+    await asLeaver.call('create_group', { name: 'Staying' })
+    expect(await asLeaver.call('leave_group', { groupId: id })).toEqual({})
+    expect(await asLeaver.call('list_groups')).toMatchObject({ groups: [{ name: 'Staying' }] })
+  })
+
+  it('runs the meal plan flow from planning to the shopping list', async () => {
+    const groupId = kitchen.id
+    const ingredientId = await asCook.create('create_ingredient', { ...oatsInput, units: [] })
+    const recipeId = await asCook.create('create_recipe', {
+      title: 'Plan porridge',
+      servings: 2,
+      ingredients: [{ ingredientId, quantity: 100, unit: 'g' }],
+      steps: [],
+    })
+
+    const id = await asCook.create('add_meal', {
+      groupId,
+      date: '2026-10-14',
+      slot: 'breakfast',
+      recipeId,
+    })
+    const week = await asCook.call('get_week_plan', { groupId, date: '2026-10-18' })
+    expect(week).toMatchObject({ weekStart: '2026-10-12' })
+    expect(week.days).toMatchObject([
+      {},
+      {},
+      {
+        date: '2026-10-14',
+        slots: [
+          { slot: 'breakfast', entries: [{ id, kind: 'recipe', recipe: { id: recipeId } }] },
+          { slot: 'lunch', entries: [] },
+          { slot: 'dinner', entries: [] },
+          { slot: 'snack', entries: [] },
+        ],
+      },
+      {},
+      {},
+      {},
+      {},
+    ])
+
+    await asCook.call('move_meal', { groupId, id, date: '2026-10-15', slot: 'dinner' })
+    await asCook.call('update_meal', { groupId, id, servings: 6 })
+    expect(await asCook.call('get_week_plan', { groupId, date: '2026-10-12' })).toMatchObject({
+      days: [
+        {},
+        {},
+        { slots: [{ entries: [] }, { entries: [] }, { entries: [] }, { entries: [] }] },
+        { date: '2026-10-15', slots: [{}, {}, { entries: [{ id, servings: 6 }] }, {}] },
+        {},
+        {},
+        {},
+      ],
+    })
+
+    expect(await asCook.call('add_week_to_shopping_list', { groupId, date: '2026-10-15' })).toEqual(
+      { added: 1, skipped: 0 }
+    )
+    expect(await asCook.call('get_shopping_list', { groupId })).toMatchObject({
+      needs: [{ ingredientId, neededGrams: 300, toBuyGrams: 300 }],
+    })
+
+    expect(await asCook.call('remove_meal', { groupId, id })).toEqual({})
+    expect(await asCook.call('get_month_plan', { groupId, month: '2026-10' })).toMatchObject({
+      month: '2026-10',
+      days: expect.not.arrayContaining([expect.objectContaining({ count: 1 })]),
+    })
+  })
+
+  it('defaults get_week_plan to the current week', async () => {
+    const asSolo = await connect(insertUser().id)
+    const { weekStart } = await asSolo.call('get_week_plan')
+    expect(weekStart).toBe(mondayOf(localDate(new Date())))
+  })
+
+  it('refuses update_meal with nothing to change', async () => {
+    expect(await asCook.callError('update_meal', { groupId: kitchen.id, id: 'x' })).toEqual([
+      { type: 'text', text: 'Nothing to change' },
+    ])
   })
 })
