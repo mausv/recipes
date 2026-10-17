@@ -1,6 +1,6 @@
 'use client'
 
-import { BookOpen, Carrot, Settings, ShoppingCart } from 'lucide-react'
+import { BookOpen, CalendarDays, Carrot, Settings, ShoppingCart } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 const links = [
   { href: '/', label: 'Recipes', icon: BookOpen },
   { href: '/ingredients', label: 'Ingredients', icon: Carrot },
+  { href: '/plan', label: 'Plan', icon: CalendarDays },
   { href: '/shopping', label: 'Shopping', icon: ShoppingCart },
   { href: '/settings', label: 'Settings', icon: Settings },
 ] as const
@@ -46,7 +47,7 @@ export function TopNav() {
 export function BottomNav() {
   const pathname = usePathname()
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
       {links.map(({ href, label, icon: Icon }) => {
         const active = isActive(pathname, href)
         return (

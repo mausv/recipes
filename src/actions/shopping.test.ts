@@ -18,6 +18,7 @@ const { db, schema, insertUser, insertIngredient, insertGroup, insertRecipe } = 
 const {
   addRecipeToShoppingList,
   addShoppingItem,
+  addWeekToShoppingList,
   clearCheckedItems,
   clearShoppingList,
   markBoughtIntoPantry,
@@ -198,6 +199,59 @@ describe('addRecipeToShoppingList', () => {
   it('refuses to run without a signed-in user', async () => {
     vi.mocked(requireUser).mockRejectedValue(new Error('NEXT_REDIRECT'))
     await expect(addRecipeToShoppingList({ recipeId: porridge.id, servings: 2 })).rejects.toThrow()
+    expect(items()).toEqual([])
+  })
+})
+
+describe('addWeekToShoppingList', () => {
+  beforeEach(() => {
+    db.delete(schema.mealPlanEntry).run()
+  })
+
+  function plan(groupId: string, date: string) {
+    db.insert(schema.mealPlanEntry)
+      .values({
+        groupId,
+        date,
+        slot: 'dinner',
+        recipeId: porridge.id,
+        position: 0,
+        createdById: user.id,
+      })
+      .run()
+  }
+
+  it('adds the planned recipes of the week containing the given date', async () => {
+    plan(home.id, '2026-10-12')
+    plan(home.id, '2026-10-19')
+    expect(await addWeekToShoppingList('2026-10-18')).toEqual({ added: 1, skipped: 0 })
+    expect(items()).toHaveLength(2)
+  })
+
+  it('uses the active group’s plan and list', async () => {
+    plan(home.id, '2026-10-12')
+    plan(cabin.id, '2026-10-12')
+    jar.set('group', cabin.id)
+    await addWeekToShoppingList('2026-10-12')
+    expect(
+      db.select({ groupId: schema.shoppingItem.groupId }).from(schema.shoppingItem).all()
+    ).toEqual([{ groupId: cabin.id }, { groupId: cabin.id }])
+  })
+
+  it('returns the validation message for an invalid date', async () => {
+    expect(await addWeekToShoppingList('next week')).toEqual({ error: 'Pick a valid date' })
+  })
+
+  it('revalidates the shopping page', async () => {
+    plan(home.id, '2026-10-12')
+    await addWeekToShoppingList('2026-10-12')
+    expect(revalidatePath).toHaveBeenCalledWith('/shopping')
+  })
+
+  it('refuses to run without a signed-in user', async () => {
+    plan(home.id, '2026-10-12')
+    vi.mocked(requireUser).mockRejectedValue(new Error('NEXT_REDIRECT'))
+    await expect(addWeekToShoppingList('2026-10-12')).rejects.toThrow()
     expect(items()).toEqual([])
   })
 })

@@ -6,6 +6,7 @@ const { db, schema, insertUser, insertIngredient, insertGroup, insertRecipe, sha
 const {
   addRecipeToShoppingList,
   addShoppingItem,
+  addWeekToShoppingList,
   clearShoppingList,
   getShoppingList,
   moveBoughtToPantry,
@@ -159,5 +160,89 @@ describe('addRecipeToShoppingList', () => {
     expect(addRecipeToShoppingList(home.id, user.id, recipe.id, 1)).toEqual({
       error: 'Recipe not found',
     })
+  })
+})
+
+describe('addWeekToShoppingList', () => {
+  const MONDAY = '2026-10-12'
+  const stew = insertRecipe(user.id, { title: 'Stew', servings: 4 })
+  db.insert(schema.recipeIngredient)
+    .values({
+      recipeId: stew.id,
+      ingredientId: oats.id,
+      quantity: 400,
+      unit: 'g',
+      grams: 400,
+      position: 0,
+    })
+    .run()
+
+  beforeEach(() => {
+    db.delete(schema.mealPlanEntry).run()
+  })
+
+  function plan(values: Partial<typeof schema.mealPlanEntry.$inferInsert>) {
+    db.insert(schema.mealPlanEntry)
+      .values({
+        groupId: home.id,
+        date: MONDAY,
+        slot: 'dinner',
+        position: 0,
+        createdById: user.id,
+        ...values,
+      })
+      .run()
+  }
+
+  function grams() {
+    return db
+      .select({ grams: schema.shoppingItem.grams })
+      .from(schema.shoppingItem)
+      .all()
+      .map((i) => i.grams)
+  }
+
+  it('scales each recipe to the entry servings', () => {
+    plan({ recipeId: stew.id, servings: 2 })
+    addWeekToShoppingList(home.id, user.id, MONDAY)
+    expect(grams()).toEqual([200])
+  })
+
+  it('uses the recipe servings when the entry has none', () => {
+    plan({ recipeId: stew.id })
+    addWeekToShoppingList(home.id, user.id, MONDAY)
+    expect(grams()).toEqual([400])
+  })
+
+  it('adds a recipe once per entry', () => {
+    plan({ recipeId: stew.id, date: MONDAY })
+    plan({ recipeId: stew.id, date: '2026-10-18' })
+    expect(addWeekToShoppingList(home.id, user.id, MONDAY)).toEqual({ added: 2, skipped: 0 })
+  })
+
+  it('ignores notes and entries outside the week', () => {
+    plan({ note: 'Eat out' })
+    plan({ recipeId: stew.id, date: '2026-10-19' })
+    plan({ recipeId: stew.id, date: '2026-10-11' })
+    expect(addWeekToShoppingList(home.id, user.id, MONDAY)).toEqual({ added: 0, skipped: 0 })
+  })
+
+  it('ignores entries of another group', () => {
+    plan({ recipeId: stew.id, groupId: cabin.id })
+    expect(addWeekToShoppingList(home.id, user.id, MONDAY)).toEqual({ added: 0, skipped: 0 })
+  })
+
+  it('adds the lines to the given group', () => {
+    plan({ recipeId: stew.id })
+    addWeekToShoppingList(home.id, user.id, MONDAY)
+    expect(getShoppingList(home.id).needs).toMatchObject([{ ingredientId: oats.id }])
+  })
+
+  it('skips recipes the user cannot view and counts them', () => {
+    const hidden = insertRecipe(insertUser().id)
+    plan({ recipeId: hidden.id })
+    plan({ recipeId: stew.id })
+    expect(addWeekToShoppingList(home.id, user.id, MONDAY)).toEqual({ added: 1, skipped: 1 })
+    expect(grams()).toEqual([400])
   })
 })

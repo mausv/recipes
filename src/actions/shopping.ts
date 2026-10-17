@@ -2,8 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { getActiveGroup } from '@/lib/active-group'
+import { mondayOf } from '@/lib/meal-plan'
 import { requireUser } from '@/lib/session'
 import * as shoppingList from '@/lib/shopping-list'
+import { dateSchema } from '@/lib/validation/meal-plan'
 import {
   type AddRecipeInput,
   addRecipeSchema,
@@ -26,6 +28,16 @@ export async function addRecipeToShoppingList(input: AddRecipeInput) {
   const { recipeId, servings } = parsed.data
   const result = shoppingList.addRecipeToShoppingList(groupId, user.id, recipeId, servings)
   if (result.error === undefined) revalidatePath('/shopping')
+  return result
+}
+
+export async function addWeekToShoppingList(week: string) {
+  const user = await requireUser()
+  const parsed = dateSchema.safeParse(week)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+  const { id: groupId } = await getActiveGroup(user.id)
+  const result = shoppingList.addWeekToShoppingList(groupId, user.id, mondayOf(parsed.data))
+  if (result.added) revalidatePath('/shopping')
   return result
 }
 

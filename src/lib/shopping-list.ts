@@ -1,7 +1,15 @@
-import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
+import { and, asc, between, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { db } from '@/db'
-import { ingredient, pantryItem, recipe, recipeIngredient, shoppingItem } from '@/db/schema'
+import {
+  ingredient,
+  mealPlanEntry,
+  pantryItem,
+  recipe,
+  recipeIngredient,
+  shoppingItem,
+} from '@/db/schema'
 import { canViewRecipe } from './access'
+import { addDays } from './meal-plan'
 import { applyPantry, mergeNeeds, scaleIngredientLines } from './shopping'
 import { isKnownUnit, toGrams } from './units'
 import type { PantryItemData, ShoppingItemData } from './validation/shopping'
@@ -85,6 +93,31 @@ export function addRecipeToShoppingList(
       .run()
   }
   return { added: lines.length }
+}
+
+export function addWeekToShoppingList(groupId: string, userId: string, monday: string) {
+  const entries = db
+    .select({
+      recipeId: recipe.id,
+      servings: sql<number>`coalesce(${mealPlanEntry.servings}, ${recipe.servings})`,
+    })
+    .from(mealPlanEntry)
+    .innerJoin(recipe, eq(recipe.id, mealPlanEntry.recipeId))
+    .where(
+      and(
+        eq(mealPlanEntry.groupId, groupId),
+        between(mealPlanEntry.date, monday, addDays(monday, 6))
+      )
+    )
+    .orderBy(asc(mealPlanEntry.date), asc(mealPlanEntry.position))
+    .all()
+
+  let added = 0
+  for (const entry of entries) {
+    const result = addRecipeToShoppingList(groupId, userId, entry.recipeId, entry.servings)
+    if (result.error === undefined) added++
+  }
+  return { added, skipped: entries.length - added }
 }
 
 export function addShoppingItem(
