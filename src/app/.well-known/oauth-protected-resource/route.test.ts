@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { setupTestDb } from '@/test/db'
+
+vi.mock('next/server', () => ({ connection: vi.fn(async () => {}) }))
 
 await setupTestDb()
 const { GET } = await import('./route')
