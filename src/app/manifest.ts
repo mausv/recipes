@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Household recipes, ingredients and shopping list',
     start_url: '/',
     display: 'standalone',
-    background_color: '#ffffff',
-    theme_color: '#ffffff',
+    background_color: '#fbf8f2',
+    theme_color: '#fbf8f2',
     icons: [{ src: '/favicon.ico', sizes: 'any', type: 'image/x-icon' }],
   }
 }

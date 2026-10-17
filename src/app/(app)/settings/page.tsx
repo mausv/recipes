@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { listApiKeys } from '@/lib/api-keys'
 import { listConnectedClients } from '@/lib/oauth'
 import { requireUser } from '@/lib/session'
@@ -10,17 +9,15 @@ export default async function SettingsPage() {
   const user = await requireUser()
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Settings</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>Account</CardTitle>
-        </CardHeader>
-        <CardContent>
+    <div className="space-y-10 md:space-y-14">
+      <h1 className="text-[32px] leading-tight tracking-[-0.01em]">Settings</h1>
+      <section className="max-w-2xl space-y-3">
+        <h2 className="text-2xl">Account</h2>
+        <div>
           <p className="font-medium">{user.name}</p>
           <p className="text-muted-foreground">{user.email}</p>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
       <ConnectClaudeCard
         keys={listApiKeys(user.id)}
         connections={listConnectedClients(user.id)}

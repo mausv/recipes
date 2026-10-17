@@ -28,8 +28,8 @@ export function NoteForm({ recipeId, text }: { recipeId: string; text: string })
         onChange={(e) => setValue(e.target.value)}
         className="min-h-24"
       />
-      <Button type="submit" variant="secondary" disabled={pending || value === text}>
-        {pending ? 'Saving…' : 'Save'}
+      <Button type="submit" disabled={pending || value === text}>
+        {pending ? 'Saving…' : 'Save note'}
       </Button>
     </form>
   )

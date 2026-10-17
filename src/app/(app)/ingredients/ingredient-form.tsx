@@ -1,13 +1,13 @@
 'use client'
 
 import { Plus, Search, X } from 'lucide-react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { createIngredient, updateIngredient } from '@/actions/ingredients'
 import { MacroSummary } from '@/components/macro-summary'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Field,
   FieldDescription,
@@ -123,12 +123,13 @@ export function IngredientForm({ ingredient }: { ingredient?: IngredientWithUnit
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10 md:space-y-14">
       <NutritionLookup onPick={prefill} />
 
       <form onSubmit={submit}>
-        <FieldGroup>
-          <div className="grid gap-4 sm:grid-cols-2">
+        <FieldGroup className="gap-10 md:gap-14">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <h2 className="text-2xl sm:col-span-2">Details</h2>
             <Field>
               <FieldLabel htmlFor="name">Name</FieldLabel>
               <Input {...field('name')} required />
@@ -140,10 +141,10 @@ export function IngredientForm({ ingredient }: { ingredient?: IngredientWithUnit
           </div>
 
           <FieldSet>
-            <FieldLegend className="flex items-center gap-2">
+            <FieldLegend className="flex items-center gap-3 font-heading text-2xl data-[variant=legend]:text-2xl">
               Nutrition per 100 g <SourceBadge source={origin.source} />
             </FieldLegend>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-5 sm:grid-cols-5">
               {macroFields.map((m) => (
                 <Field key={m.name}>
                   <FieldLabel htmlFor={m.name}>{m.label}</FieldLabel>
@@ -160,22 +161,27 @@ export function IngredientForm({ ingredient }: { ingredient?: IngredientWithUnit
             </div>
           </FieldSet>
 
-          <Field className="sm:max-w-xs">
-            <FieldLabel htmlFor="density">Density (g/ml)</FieldLabel>
-            <Input {...field('density')} type="number" inputMode="decimal" step="any" min={0} />
-            <FieldDescription>Used to convert ml and l to grams. Water is 1.</FieldDescription>
-          </Field>
-
           <FieldSet>
-            <FieldLegend>Custom units</FieldLegend>
-            <FieldDescription>
-              Like “cup”, “slice” or “piece”, with how many grams one weighs.
+            <FieldLegend className="font-heading text-2xl data-[variant=legend]:text-2xl">
+              Units
+            </FieldLegend>
+            <Field className="sm:max-w-xs">
+              <FieldLabel htmlFor="density">Density (g/ml)</FieldLabel>
+              <Input {...field('density')} type="number" inputMode="decimal" step="any" min={0} />
+              <FieldDescription>
+                Converts volume units (ml, l, tsp, tbsp, cup, fl oz) to grams. Water is 1.
+              </FieldDescription>
+            </Field>
+            <FieldDescription className="pt-2">
+              Add units like “slice” or “piece” with how many grams one weighs. A custom unit with
+              the same name as a built-in one, like “cup”, replaces the built-in conversion for this
+              ingredient.
             </FieldDescription>
             {units.map((unit) => (
               <div key={unit.key} className="flex items-center gap-2">
                 <Input
                   aria-label="Unit name"
-                  placeholder="cup"
+                  placeholder="slice"
                   value={unit.name}
                   onChange={(e) => updateUnit(unit.key, { name: e.target.value })}
                   required
@@ -196,6 +202,7 @@ export function IngredientForm({ ingredient }: { ingredient?: IngredientWithUnit
                   type="button"
                   variant="ghost"
                   size="icon"
+                  className="text-muted-foreground"
                   aria-label="Remove unit"
                   onClick={() => setUnits((rows) => rows.filter((r) => r.key !== unit.key))}
                 >
@@ -205,8 +212,8 @@ export function IngredientForm({ ingredient }: { ingredient?: IngredientWithUnit
             ))}
             <Button
               type="button"
-              variant="outline"
-              className="w-fit"
+              variant="ghost"
+              className="-ml-4 w-fit text-primary hover:text-primary sm:-ml-3.5"
               onClick={() => setUnits((rows) => [...rows, { key: nextKey++, name: '', grams: '' }])}
             >
               <Plus />
@@ -214,10 +221,17 @@ export function IngredientForm({ ingredient }: { ingredient?: IngredientWithUnit
             </Button>
           </FieldSet>
 
-          <FieldError>{error}</FieldError>
-          <Button type="submit" disabled={pending} className="w-fit">
-            {pending ? 'Saving…' : ingredient ? 'Save ingredient' : 'Create ingredient'}
-          </Button>
+          <div className="space-y-4 border-t pt-6">
+            <FieldError>{error}</FieldError>
+            <div className="flex justify-end gap-1">
+              <Link href="/ingredients" className={buttonVariants({ variant: 'ghost' })}>
+                Cancel
+              </Link>
+              <Button type="submit" disabled={pending}>
+                {pending ? 'Saving…' : 'Save ingredient'}
+              </Button>
+            </div>
+          </div>
         </FieldGroup>
       </form>
     </div>
@@ -243,44 +257,52 @@ function NutritionLookup({ onPick }: { onPick: (result: NutritionResult) => void
   }
 
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>Look up nutrition</CardTitle>
-        <CardDescription>Search Open Food Facts and USDA, then pick a match.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <form onSubmit={search} className="flex gap-2">
-          <Input name="q" type="search" placeholder="e.g. rolled oats" aria-label="Search" />
-          <Button type="submit" variant="secondary" disabled={pending}>
-            <Search />
-            {pending ? 'Searching…' : 'Look up'}
-          </Button>
-        </form>
-        <FieldError>{error}</FieldError>
-        {results?.length === 0 && <p className="text-muted-foreground">No matches.</p>}
-        {results && results.length > 0 && (
-          <ul className="max-h-72 divide-y overflow-y-auto rounded-lg border">
-            {results.map((r) => (
-              <li key={`${r.source}-${r.sourceId}`}>
-                <button
-                  type="button"
-                  onClick={() => onPick(r)}
-                  className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left hover:bg-muted"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium">{r.name}</span>
-                    {r.brand && (
-                      <span className="block truncate text-muted-foreground">{r.brand}</span>
-                    )}
-                    <MacroSummary macros={r.per100g} className="text-xs" />
-                  </span>
-                  <SourceBadge source={r.source} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+    <section className="space-y-4">
+      <div className="space-y-1">
+        <h2 className="text-2xl">Look up nutrition</h2>
+        <p className="text-sm text-muted-foreground">
+          Search Open Food Facts and USDA, then pick a match.
+        </p>
+      </div>
+      <form onSubmit={search} className="flex gap-2">
+        <Input
+          name="q"
+          type="search"
+          placeholder="e.g. rolled oats"
+          aria-label="Search"
+          className="rounded-full px-4"
+        />
+        <Button type="submit" variant="secondary" disabled={pending}>
+          <Search />
+          {pending ? 'Searching…' : 'Look up'}
+        </Button>
+      </form>
+      <FieldError>{error}</FieldError>
+      {results?.length === 0 && <p className="text-muted-foreground">No matches.</p>}
+      {results && results.length > 0 && (
+        <ul className="max-h-80 divide-y overflow-y-auto border-y">
+          {results.map((r) => (
+            <li key={`${r.source}-${r.sourceId}`}>
+              <button
+                type="button"
+                onClick={() => onPick(r)}
+                className="flex w-full items-start justify-between gap-3 px-1 py-3 text-left hover:bg-secondary/60"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{r.name}</span>
+                  {r.brand && (
+                    <span className="block truncate text-[13px] text-muted-foreground">
+                      {r.brand}
+                    </span>
+                  )}
+                  <MacroSummary macros={r.per100g} className="text-[13px]" />
+                </span>
+                <SourceBadge source={r.source} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }

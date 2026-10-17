@@ -1,13 +1,13 @@
 'use client'
 
-import { Carrot, Plus } from 'lucide-react'
+import { Carrot } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { addShoppingItem } from '@/actions/shopping'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { IngredientWithUnits } from '@/lib/ingredients'
-import { BASE_UNITS } from '@/lib/units'
+import { builtInUnitsFor } from '@/lib/units'
 import { IngredientPicker } from './ingredient-picker'
 
 export function AddItemForm({ library }: { library: IngredientWithUnits[] }) {
@@ -17,7 +17,8 @@ export function AddItemForm({ library }: { library: IngredientWithUnits[] }) {
   const [unit, setUnit] = useState('')
   const [pending, startTransition] = useTransition()
 
-  const units = [...BASE_UNITS, ...(linked?.units.map((u) => u.name) ?? [])]
+  const custom = linked?.units ?? []
+  const units = [...builtInUnitsFor(custom), ...custom].map((u) => u.name)
 
   function link(ingredient: IngredientWithUnits) {
     setLinked(ingredient)
@@ -50,7 +51,7 @@ export function AddItemForm({ library }: { library: IngredientWithUnits[] }) {
   return (
     <form
       onSubmit={submit}
-      className="grid grid-cols-[1fr_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+      className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
     >
       <Input
         aria-label="Item"
@@ -58,6 +59,7 @@ export function AddItemForm({ library }: { library: IngredientWithUnits[] }) {
         value={name}
         onChange={(e) => rename(e.target.value)}
         required
+        className="rounded-full px-4"
       />
       <IngredientPicker
         library={library}
@@ -69,34 +71,35 @@ export function AddItemForm({ library }: { library: IngredientWithUnits[] }) {
         <Carrot />
         <span className="sr-only sm:not-sr-only">{linked ? 'Linked' : 'Link'}</span>
       </IngredientPicker>
-      <div className="col-span-2 grid grid-cols-[5rem_1fr_auto] gap-2 sm:col-span-1 sm:grid-cols-[5rem_6rem_auto]">
-        <Input
-          aria-label="Quantity"
-          type="number"
-          inputMode="decimal"
-          min={0}
-          step="any"
-          placeholder="Qty"
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-        />
-        <Input
-          aria-label="Unit"
-          placeholder="Unit"
-          list="shopping-units"
-          value={unit}
-          onChange={(e) => setUnit(e.target.value)}
-        />
-        <datalist id="shopping-units">
-          {units.map((u) => (
-            <option key={u} value={u} />
-          ))}
-        </datalist>
-        <Button type="submit" disabled={pending}>
-          <Plus />
-          Add
-        </Button>
-      </div>
+      {name.trim() && (
+        <div className="col-span-2 grid grid-cols-[5rem_minmax(0,1fr)_auto] gap-2 sm:col-span-1 sm:grid-cols-[5rem_6rem_auto]">
+          <Input
+            aria-label="Quantity"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="any"
+            placeholder="Qty"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+          <Input
+            aria-label="Unit"
+            placeholder="Unit"
+            list="shopping-units"
+            value={unit}
+            onChange={(e) => setUnit(e.target.value)}
+          />
+          <datalist id="shopping-units">
+            {units.map((u) => (
+              <option key={u} value={u} />
+            ))}
+          </datalist>
+          <Button type="submit" disabled={pending}>
+            Add
+          </Button>
+        </div>
+      )}
     </form>
   )
 }

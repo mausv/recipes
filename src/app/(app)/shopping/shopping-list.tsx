@@ -1,6 +1,6 @@
 'use client'
 
-import { PackageCheck, Trash2, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import Link from 'next/link'
 import { useOptimistic, useState, useTransition } from 'react'
 import { toast } from 'sonner'
@@ -63,37 +63,23 @@ export function ShoppingList({ needs, freeText }: { needs: NeedRow[]; freeText: 
 
   if (all.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
-        Your list is empty. Add items above or from a recipe.
+      <div className="space-y-2 py-6">
+        <p className="font-heading text-2xl font-medium">Nothing to buy.</p>
+        <p className="text-muted-foreground">
+          Add an item above, or add the ingredients of a{' '}
+          <Link href="/" className="text-primary underline underline-offset-4">
+            recipe
+          </Link>
+          .
+        </p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={pending || !anyLinkedChecked}
-          onClick={() => run(markBoughtIntoPantry, 'Moved bought items to the pantry')}
-        >
-          <PackageCheck />
-          Move bought to pantry
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={pending || !anyChecked}
-          onClick={() => run(clearCheckedItems, 'Cleared bought items')}
-        >
-          Clear bought
-        </Button>
-        <ClearAllButton />
-      </div>
-
+    <div className="space-y-10">
       {toBuy.length > 0 && (
-        <ul className="divide-y rounded-lg border">
+        <ul className="divide-y">
           {toBuy.map((need) => (
             <NeedItem key={need.ingredientId} need={need} />
           ))}
@@ -102,8 +88,8 @@ export function ShoppingList({ needs, freeText }: { needs: NeedRow[]; freeText: 
 
       {freeText.length > 0 && (
         <section className="space-y-2">
-          <h2 className="font-medium">Other items</h2>
-          <ul className="divide-y rounded-lg border">
+          <h2 className="text-xl">Other items</h2>
+          <ul className="divide-y">
             {freeText.map((item) => (
               <Row
                 key={item.id}
@@ -122,15 +108,36 @@ export function ShoppingList({ needs, freeText }: { needs: NeedRow[]; freeText: 
       )}
 
       {covered.length > 0 && (
-        <section className="space-y-2">
-          <h2 className="font-medium">Covered by pantry</h2>
-          <ul className="divide-y rounded-lg border opacity-60">
+        <section className="space-y-1 rounded-lg bg-secondary px-4 pt-4 pb-1">
+          <h2 className="text-xl">Covered by pantry</h2>
+          <ul className="divide-y divide-foreground/10 opacity-70">
             {covered.map((need) => (
               <NeedItem key={need.ingredientId} need={need} />
             ))}
           </ul>
         </section>
       )}
+
+      <div className="-mt-4 -ml-3.5 flex flex-wrap gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-primary hover:text-primary"
+          disabled={pending || !anyLinkedChecked}
+          onClick={() => run(markBoughtIntoPantry, 'Moved bought items to the pantry')}
+        >
+          Move bought to pantry
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={pending || !anyChecked}
+          onClick={() => run(clearCheckedItems, 'Cleared bought items')}
+        >
+          Clear bought
+        </Button>
+        <ClearAllButton />
+      </div>
     </div>
   )
 }
@@ -152,14 +159,22 @@ function NeedItem({ need }: { need: NeedRow }) {
       secondary={display ? weight : null}
       details={
         (hint || recipes.size > 0) && (
-          <div className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+          <p className="mt-0.5 flex flex-wrap gap-x-3 text-[13px] text-muted-foreground">
+            {recipes.size > 0 && (
+              <span>
+                for{' '}
+                {[...recipes].map(([id, title], index) => (
+                  <span key={id}>
+                    {index > 0 && ', '}
+                    <Link href={`/recipes/${id}`} className="underline underline-offset-2">
+                      {title}
+                    </Link>
+                  </span>
+                ))}
+              </span>
+            )}
             {hint && <span>{hint}</span>}
-            {[...recipes].map(([id, title]) => (
-              <Link key={id} href={`/recipes/${id}`} className="underline-offset-2 hover:underline">
-                {title}
-              </Link>
-            ))}
-          </div>
+          </p>
         )
       }
     />
@@ -192,18 +207,28 @@ function Row({
   }
 
   return (
-    <li className="flex items-center gap-2 py-1 pr-1 pl-3">
-      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-2">
-        <Checkbox checked={optimistic} onCheckedChange={toggle} className="size-5" />
+    <li className="flex min-h-12 items-center gap-1">
+      <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 py-3">
+        <Checkbox checked={optimistic} onCheckedChange={toggle} className="mt-px size-6" />
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className={cn('truncate', optimistic && 'text-muted-foreground line-through')}>
+          <div
+            className={cn(
+              'flex items-baseline justify-between gap-3 transition-colors duration-150',
+              optimistic && 'text-muted-foreground'
+            )}
+          >
+            <span
+              className={cn(
+                'min-w-0 text-[17px] leading-snug line-through decoration-1 transition-colors duration-150',
+                optimistic ? 'decoration-current' : 'decoration-transparent'
+              )}
+            >
               {name}
             </span>
             {amount && (
-              <span className="shrink-0 text-sm tabular-nums">
+              <span className="shrink-0 text-right text-[15px] tabular-nums">
                 {amount}
-                {secondary && <span className="text-muted-foreground"> · {secondary}</span>}
+                {secondary && <span className="ml-1.5 text-muted-foreground">({secondary})</span>}
               </span>
             )}
           </div>
@@ -213,6 +238,7 @@ function Row({
       <Button
         variant="ghost"
         size="icon"
+        className="text-muted-foreground"
         aria-label={`Remove ${name}`}
         disabled={pending}
         onClick={() =>
@@ -241,8 +267,15 @@ function ClearAllButton() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>
-        <Trash2 />
+      <DialogTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+          />
+        }
+      >
         Clear all
       </DialogTrigger>
       <DialogContent>

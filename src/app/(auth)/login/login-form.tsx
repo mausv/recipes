@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth-client'
@@ -34,44 +33,39 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>Sign in</CardTitle>
-        <CardDescription>Welcome back to Recipes.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={onSubmit}>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="email">Email</FieldLabel>
-              <Input id="email" name="email" type="email" autoComplete="email" required />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="password">Password</FieldLabel>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
-            </Field>
-            <FieldError>{error}</FieldError>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Signing in…' : 'Sign in'}
-            </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              No account?{' '}
-              <Link
-                href={`/signup${search}`}
-                className="text-foreground underline underline-offset-4"
-              >
-                Sign up
-              </Link>
-            </p>
-          </FieldGroup>
-        </form>
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+      <div className="space-y-1">
+        <h1 className="text-2xl">Sign in</h1>
+        <p className="text-muted-foreground">Welcome back.</p>
+      </div>
+      <form onSubmit={onSubmit}>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <Input id="email" name="email" type="email" autoComplete="email" required />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
+          </Field>
+          <FieldError>{error}</FieldError>
+          <Button type="submit" disabled={pending}>
+            {pending ? 'Signing in…' : 'Sign in'}
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            No account?{' '}
+            <Link href={`/signup${search}`} className="text-primary underline underline-offset-4">
+              Sign up
+            </Link>
+          </p>
+        </FieldGroup>
+      </form>
+    </div>
   )
 }

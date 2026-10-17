@@ -10,9 +10,9 @@ export default async function EditIngredientPage({ params }: PageProps<'/ingredi
   if (!ingredient) notFound()
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-2xl space-y-10">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">Edit ingredient</h1>
+        <h1 className="text-[32px] leading-tight tracking-[-0.01em]">Edit ingredient</h1>
         <ConfirmDeleteButton
           title={`Delete ${ingredient.name}?`}
           description="This removes it from the ingredient library. Ingredients used by a recipe can't be deleted."

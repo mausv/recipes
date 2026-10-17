@@ -4,7 +4,6 @@ import { Upload } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { importRecipes } from '@/actions/transfer'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogClose,
@@ -51,12 +50,12 @@ export function ImportCard() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Import</CardTitle>
-        <CardDescription>Load recipes from a JSON export.</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <section className="max-w-2xl space-y-5">
+      <div className="space-y-1">
+        <h2 className="text-2xl">Import</h2>
+        <p className="text-sm text-muted-foreground">Load recipes from a JSON export.</p>
+      </div>
+      <div>
         <form onSubmit={submit}>
           <FieldGroup>
             <Field>
@@ -95,7 +94,7 @@ export function ImportCard() {
             </Button>
           </FieldGroup>
         </form>
-      </CardContent>
+      </div>
 
       <Dialog
         open={confirming !== undefined}
@@ -117,6 +116,6 @@ export function ImportCard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </section>
   )
 }

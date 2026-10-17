@@ -45,7 +45,14 @@ export function ConfirmDeleteButton({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="destructive" />}>
+      <DialogTrigger
+        render={
+          <Button
+            variant="ghost"
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive aria-expanded:text-destructive"
+          />
+        }
+      >
         <Trash2 />
         Delete
       </DialogTrigger>

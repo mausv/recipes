@@ -20,7 +20,7 @@ export function CommentForm({ recipeId }: { recipeId: string }) {
   }
 
   return (
-    <form onSubmit={submit} className="flex items-end gap-2">
+    <form onSubmit={submit} className="space-y-3">
       <Textarea
         aria-label="Comment"
         placeholder="Add a comment"
@@ -28,7 +28,7 @@ export function CommentForm({ recipeId }: { recipeId: string }) {
         onChange={(e) => setText(e.target.value)}
       />
       <Button type="submit" disabled={pending || !text.trim()}>
-        {pending ? 'Posting…' : 'Post'}
+        {pending ? 'Posting…' : 'Post comment'}
       </Button>
     </form>
   )

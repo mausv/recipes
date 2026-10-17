@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 import { createApiKey, revokeApiKey } from '@/actions/api-keys'
 import { revokeOAuthClient } from '@/actions/oauth'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 
@@ -92,16 +91,16 @@ export function ConnectClaudeCard({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Connect Claude</CardTitle>
-        <CardDescription>
+    <section className="max-w-2xl space-y-5">
+      <div className="space-y-1">
+        <h2 className="text-2xl">Connect Claude</h2>
+        <p className="text-sm text-muted-foreground">
           Let Claude read and change your recipes, ingredients, shopping list and pantry over MCP.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+        </p>
+      </div>
+      <div className="space-y-6">
         <section className="space-y-2">
-          <h3 className="font-medium">Claude.ai and Claude Desktop</h3>
+          <h3 className="text-lg">Claude.ai and Claude Desktop</h3>
           <p className="text-sm text-muted-foreground">
             Settings → Connectors → Add custom connector, paste this URL, then sign in and approve.
           </p>
@@ -109,7 +108,7 @@ export function ConnectClaudeCard({
         </section>
 
         <section className="space-y-2">
-          <h3 className="font-medium">Claude Code</h3>
+          <h3 className="text-lg">Claude Code</h3>
           <CopyBlock label="Command" text={`claude mcp add --transport http recipes ${endpoint}`} />
           <p className="text-sm text-muted-foreground">
             Then run <code className="font-mono">/mcp</code> in Claude Code to sign in and approve.
@@ -118,7 +117,7 @@ export function ConnectClaudeCard({
 
         {connections.length > 0 && (
           <section className="space-y-2">
-            <h3 className="font-medium">Connected apps</h3>
+            <h3 className="text-lg">Connected apps</h3>
             <ul className="divide-y">
               {connections.map((c) => (
                 <li key={c.clientId} className="flex items-center gap-2 py-2">
@@ -141,7 +140,7 @@ export function ConnectClaudeCard({
 
         <section className="space-y-4">
           <div className="space-y-1">
-            <h3 className="font-medium">For scripts</h3>
+            <h3 className="text-lg">For scripts</h3>
             <p className="text-sm text-muted-foreground">
               API keys work with any MCP client that can send a bearer header.
             </p>
@@ -155,7 +154,7 @@ export function ConnectClaudeCard({
                     <p className="font-medium">{k.name}</p>
                     <p className="text-sm text-muted-foreground">
                       Created {keyDate.format(k.createdAt)}
-                      {k.lastUsedAt && ` · last used ${keyDate.format(k.lastUsedAt)}`}
+                      {k.lastUsedAt && `, last used ${keyDate.format(k.lastUsedAt)}`}
                     </p>
                   </div>
                   <RevokeButton name={k.name} revoke={() => revokeApiKey(k.id)} />
@@ -195,7 +194,7 @@ export function ConnectClaudeCard({
             </div>
           )}
         </section>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   )
 }

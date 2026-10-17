@@ -10,8 +10,8 @@ export function MacroSummary({
 }) {
   return (
     <span className={cn('text-muted-foreground tabular-nums', className)}>
-      {formatKcal(macros.kcal)} kcal · P {formatGrams(macros.protein)} · C{' '}
-      {formatGrams(macros.carbs)} · F {formatGrams(macros.fat)}
+      {formatKcal(macros.kcal)} kcal, {formatGrams(macros.protein)} g protein,{' '}
+      {formatGrams(macros.carbs)} g carbs, {formatGrams(macros.fat)} g fat
     </span>
   )
 }

@@ -37,7 +37,7 @@ export function IngredientPicker({
       >
         {children}
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-0" align="start">
+      <PopoverContent className="w-72 max-w-[calc(100vw-2rem)] p-0" align="start">
         <Command
           filter={(_value, search, keywords) =>
             keywords?.join(' ').toLowerCase().includes(search.toLowerCase()) ? 1 : 0
@@ -61,7 +61,7 @@ export function IngredientPicker({
                 >
                   <span className="truncate">
                     {i.name}
-                    {i.brand && <span className="text-muted-foreground"> · {i.brand}</span>}
+                    {i.brand && <span className="text-muted-foreground">, {i.brand}</span>}
                   </span>
                 </CommandItem>
               ))}

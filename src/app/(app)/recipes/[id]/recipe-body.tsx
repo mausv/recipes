@@ -1,12 +1,14 @@
 'use client'
 
-import { Minus, Plus } from 'lucide-react'
+import { ChevronDown, Minus, Plus } from 'lucide-react'
 import { useState } from 'react'
+import { MacroFigures } from '@/components/macro-figures'
 import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -24,12 +26,11 @@ type Line = {
   macros: Macros
 }
 
-const rows = [
-  { key: 'kcal', label: 'Calories', unit: 'kcal' },
-  { key: 'protein', label: 'Protein', unit: 'g' },
-  { key: 'carbs', label: 'Carbs', unit: 'g' },
-  { key: 'fat', label: 'Fat', unit: 'g' },
-  { key: 'fiber', label: 'Fiber', unit: 'g' },
+const columns = [
+  { key: 'kcal', label: 'kcal' },
+  { key: 'protein', label: 'Protein' },
+  { key: 'carbs', label: 'Carbs' },
+  { key: 'fat', label: 'Fat' },
 ] as const
 
 function format(key: keyof Macros, value: number) {
@@ -41,124 +42,112 @@ export function RecipeBody({
   lines,
   nutrition,
   steps,
+  children,
 }: {
   baseServings: number
   lines: Line[]
   nutrition: { total: Macros; perServing: Macros; per100g: Macros }
   steps: React.ReactNode
+  children: React.ReactNode
 }) {
   const [servings, setServings] = useState(baseServings)
   const factor = servings / baseServings
+  const total = multiplyMacros(nutrition.total, factor)
 
   const groups = new Map<string | null, Line[]>()
   for (const line of lines) {
     groups.set(line.groupName, [...(groups.get(line.groupName) ?? []), line])
   }
 
-  const columns = [
-    { label: 'Per serving', macros: nutrition.perServing },
-    { label: 'Per 100 g', macros: nutrition.per100g },
-    { label: 'Total', macros: multiplyMacros(nutrition.total, factor) },
-  ]
-
   return (
-    <>
-      <section className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-xl font-semibold">Ingredients</h2>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Fewer servings"
-              disabled={servings <= 1}
-              onClick={() => setServings((s) => s - 1)}
-            >
-              <Minus />
-            </Button>
-            <span className="min-w-20 text-center text-sm tabular-nums">
-              {servings} {servings === 1 ? 'serving' : 'servings'}
-            </span>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="More servings"
-              onClick={() => setServings((s) => s + 1)}
-            >
-              <Plus />
-            </Button>
-          </div>
+    <div className="mt-10 grid gap-10 md:mt-14 md:gap-14 lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-x-16">
+      <div className="space-y-10 lg:sticky lg:top-20 lg:-m-1 lg:max-h-[calc(100dvh-6rem)] lg:self-start lg:overflow-y-auto lg:p-1">
+        <MacroFigures perServing={nutrition.perServing} per100g={nutrition.per100g} />
+
+        <div className="flex items-center gap-4">
+          <span id="servings-label" className="mr-auto">
+            Servings
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Fewer servings"
+            disabled={servings <= 1}
+            onClick={() => setServings((s) => s - 1)}
+          >
+            <Minus />
+          </Button>
+          <output
+            aria-labelledby="servings-label"
+            aria-live="polite"
+            className="min-w-8 text-center font-heading text-2xl font-medium tabular-nums"
+          >
+            {servings}
+          </output>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="More servings"
+            onClick={() => setServings((s) => s + 1)}
+          >
+            <Plus />
+          </Button>
         </div>
-        {lines.length === 0 && <p className="text-muted-foreground">No ingredients yet.</p>}
-        {[...groups].map(([group, groupLines]) => (
-          <div key={group ?? ''} className="space-y-2">
-            {group && <h3 className="font-medium">{group}</h3>}
-            <ul className="divide-y rounded-lg border">
-              {groupLines.map((line) => (
-                <li key={line.id} className="flex items-baseline justify-between gap-4 px-3 py-2">
-                  <span>
-                    <span className="font-medium tabular-nums">
+
+        <section className="space-y-3">
+          <h2 className="text-2xl">Ingredients</h2>
+          {lines.length === 0 && <p className="text-muted-foreground">No ingredients yet.</p>}
+          {[...groups].map(([group, groupLines]) => (
+            <div key={group ?? ''}>
+              {group && <h3 className="pt-4 pb-1 text-[19px] font-normal italic">{group}</h3>}
+              <ul className="divide-y">
+                {groupLines.map((line) => (
+                  <li
+                    key={line.id}
+                    className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-baseline gap-x-3 py-2.5"
+                  >
+                    <span className="font-semibold tabular-nums">
                       {formatQuantity(line.quantity * factor)} {line.unit}
-                    </span>{' '}
-                    {line.ingredient.name}
-                    {line.ingredient.brand && (
-                      <span className="text-muted-foreground"> · {line.ingredient.brand}</span>
-                    )}
-                  </span>
-                  {line.unit !== 'g' && (
-                    <span className="text-sm text-muted-foreground tabular-nums">
-                      {formatGrams(line.grams * factor)} g
                     </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </section>
-
-      {steps}
-
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Nutrition</h2>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead />
-              {columns.map((c) => (
-                <TableHead key={c.label} className="text-right">
-                  {c.label}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.key}>
-                <TableCell className="font-medium">{row.label}</TableCell>
-                {columns.map((c) => (
-                  <TableCell key={c.label} className="text-right tabular-nums">
-                    {format(row.key, c.macros[row.key])} {row.unit}
-                  </TableCell>
+                    <span>
+                      {line.ingredient.name}
+                      {line.ingredient.brand && (
+                        <span className="block text-[13px] text-muted-foreground">
+                          {line.ingredient.brand}
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-right text-[13px] text-muted-foreground tabular-nums">
+                      {line.unit !== 'g' && `${formatGrams(line.grams * factor)} g`}
+                    </span>
+                  </li>
                 ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+              </ul>
+            </div>
+          ))}
+        </section>
+      </div>
+
+      <div className="min-w-0 space-y-10 md:space-y-14">
+        {steps}
 
         {lines.length > 0 && (
-          <details className="group rounded-lg border">
-            <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-              Per-ingredient breakdown
+          <details className="group">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 font-heading text-2xl font-medium [&::-webkit-details-marker]:hidden">
+              Nutrition breakdown
+              <ChevronDown className="size-5 text-muted-foreground transition-transform group-open:rotate-180" />
             </summary>
-            <Table>
+            <p className="mt-2 text-sm text-muted-foreground">
+              For {servings} {servings === 1 ? 'serving' : 'servings'}, by ingredient.
+            </p>
+            <Table className="mt-3">
               <TableHeader>
-                <TableRow>
-                  <TableHead>Ingredient</TableHead>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="pl-0">Ingredient</TableHead>
                   <TableHead className="text-right">Weight</TableHead>
-                  {rows.slice(0, 4).map((row) => (
-                    <TableHead key={row.key} className="text-right">
-                      {row.label}
+                  {columns.map((c) => (
+                    <TableHead key={c.key} className="text-right">
+                      {c.label}
                     </TableHead>
                   ))}
                 </TableRow>
@@ -167,24 +156,39 @@ export function RecipeBody({
                 {lines.map((line) => {
                   const macros = multiplyMacros(line.macros, factor)
                   return (
-                    <TableRow key={line.id}>
-                      <TableCell>{line.ingredient.name}</TableCell>
+                    <TableRow key={line.id} className="hover:bg-transparent">
+                      <TableCell className="pl-0">{line.ingredient.name}</TableCell>
                       <TableCell className="text-right tabular-nums">
                         {formatGrams(line.grams * factor)} g
                       </TableCell>
-                      {rows.slice(0, 4).map((row) => (
-                        <TableCell key={row.key} className="text-right tabular-nums">
-                          {format(row.key, macros[row.key])}
+                      {columns.map((c) => (
+                        <TableCell key={c.key} className="text-right tabular-nums">
+                          {format(c.key, macros[c.key])}
                         </TableCell>
                       ))}
                     </TableRow>
                   )
                 })}
               </TableBody>
+              <TableFooter className="bg-transparent">
+                <TableRow className="hover:bg-transparent">
+                  <TableCell className="pl-0">Total</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatGrams(lines.reduce((sum, l) => sum + l.grams, 0) * factor)} g
+                  </TableCell>
+                  {columns.map((c) => (
+                    <TableCell key={c.key} className="text-right tabular-nums">
+                      {format(c.key, total[c.key])}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableFooter>
             </Table>
           </details>
         )}
-      </section>
-    </>
+
+        {children}
+      </div>
+    </div>
   )
 }

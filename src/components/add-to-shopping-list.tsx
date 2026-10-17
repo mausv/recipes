@@ -40,7 +40,7 @@ export function AddToShoppingListButton({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger render={<Button variant="outline" />}>
         <ShoppingCart />
-        Add to list
+        Add to shopping list
       </PopoverTrigger>
       <PopoverContent align="end" className="w-60">
         <form onSubmit={submit} className="space-y-3">
@@ -59,7 +59,7 @@ export function AddToShoppingListButton({
           </Field>
           <FieldError>{error}</FieldError>
           <Button type="submit" disabled={pending} className="w-full">
-            {pending ? 'Adding…' : 'Add to shopping list'}
+            {pending ? 'Adding…' : 'Add ingredients'}
           </Button>
         </form>
       </PopoverContent>

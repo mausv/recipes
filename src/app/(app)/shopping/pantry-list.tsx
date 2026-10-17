@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronsUpDown, Plus, X } from 'lucide-react'
+import { ChevronsUpDown, X } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { removePantryItem, setPantryItem } from '@/actions/shopping'
@@ -30,14 +30,17 @@ export function PantryList({
   const stocked = new Set(items.map((i) => i.ingredientId))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <AddPantryItem library={library.filter((i) => !stocked.has(i.id))} />
       {items.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
-          Your pantry is empty. Items you mark as bought can be moved here.
+        <div className="space-y-2 py-6">
+          <p className="font-heading text-2xl font-medium">Your pantry is empty.</p>
+          <p className="text-muted-foreground">
+            Add what you have above, or move bought items here from the list.
+          </p>
         </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
+        <ul className="divide-y">
           {items.map((item) => (
             <PantryRow key={`${item.ingredientId}-${item.grams}`} item={item} />
           ))}
@@ -60,10 +63,10 @@ function PantryRow({ item }: { item: PantryEntry }) {
   }
 
   return (
-    <li className="flex items-center gap-2 py-1 pr-1 pl-3">
-      <div className="min-w-0 flex-1 truncate">
-        {item.name}
-        {item.brand && <span className="text-muted-foreground"> · {item.brand}</span>}
+    <li className="flex min-h-12 items-center gap-2 py-2">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[17px] leading-snug">{item.name}</p>
+        {item.brand && <p className="truncate text-[13px] text-muted-foreground">{item.brand}</p>}
       </div>
       <div className="flex items-center gap-1.5">
         <Input
@@ -84,6 +87,7 @@ function PantryRow({ item }: { item: PantryEntry }) {
       <Button
         variant="ghost"
         size="icon"
+        className="text-muted-foreground"
         aria-label={`Remove ${item.name}`}
         disabled={pending}
         onClick={() =>
@@ -115,15 +119,15 @@ function AddPantryItem({ library }: { library: IngredientWithUnits[] }) {
   }
 
   return (
-    <form onSubmit={submit} className="grid grid-cols-[1fr_6rem_auto] gap-2">
+    <form onSubmit={submit} className="grid grid-cols-[minmax(0,1fr)_5.5rem_auto] gap-2">
       <IngredientPicker
         library={library}
         value={picked?.id ?? null}
         onSelectAction={setPicked}
-        className="min-w-0 justify-between font-normal"
+        className="min-w-0 justify-between rounded-full border-input px-4 text-base font-normal sm:h-10 sm:text-sm"
       >
         <span className={picked ? 'truncate' : 'truncate text-muted-foreground'}>
-          {picked?.name ?? 'Pick ingredient'}
+          {picked?.name ?? 'Add to pantry'}
         </span>
         <ChevronsUpDown className="text-muted-foreground" />
       </IngredientPicker>
@@ -133,12 +137,11 @@ function AddPantryItem({ library }: { library: IngredientWithUnits[] }) {
         inputMode="decimal"
         min={0}
         step="any"
-        placeholder="g (some)"
+        placeholder="g"
         value={grams}
         onChange={(e) => setGrams(e.target.value)}
       />
       <Button type="submit" disabled={pending}>
-        <Plus />
         Add
       </Button>
     </form>

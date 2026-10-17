@@ -3,7 +3,6 @@ import Form from 'next/form'
 import Link from 'next/link'
 import { MacroSummary } from '@/components/macro-summary'
 import { buttonVariants } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -25,7 +24,7 @@ export default async function IngredientsPage({ searchParams }: PageProps<'/ingr
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">Ingredients</h1>
+        <h1 className="text-[32px] leading-tight tracking-[-0.01em]">Ingredients</h1>
         <Link href="/ingredients/new" className={buttonVariants()}>
           <Plus />
           New ingredient
@@ -33,43 +32,73 @@ export default async function IngredientsPage({ searchParams }: PageProps<'/ingr
       </div>
 
       <Form action="/ingredients" className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           name="q"
           type="search"
           defaultValue={query}
           placeholder="Search by name or brand"
-          className="pl-8"
+          aria-label="Search ingredients"
+          className="rounded-full pl-10"
         />
       </Form>
 
       {ingredients.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
-          {query ? `No ingredients match “${query}”` : 'No ingredients yet'}
+        <div className="space-y-2 py-12">
+          <p className="font-heading text-2xl font-medium">
+            {query ? `No ingredients match “${query}”.` : 'No ingredients yet.'}
+          </p>
+          <p className="text-muted-foreground">
+            {query ? (
+              <Link href="/ingredients" className="text-primary underline underline-offset-4">
+                Show all ingredients
+              </Link>
+            ) : (
+              <Link href="/ingredients/new" className="text-primary underline underline-offset-4">
+                Add the first one
+              </Link>
+            )}
+            .
+          </p>
         </div>
       ) : (
         <>
           <div className="hidden md:block">
-            <Table>
+            <Table className="text-[15px]">
               <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="text-right">kcal</TableHead>
-                  <TableHead className="text-right">Protein</TableHead>
-                  <TableHead className="text-right">Carbs</TableHead>
-                  <TableHead className="text-right">Fat</TableHead>
-                  <TableHead className="text-right">Fiber</TableHead>
-                  <TableHead>Source</TableHead>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="pl-0 font-normal text-muted-foreground">Name</TableHead>
+                  <TableHead className="text-right font-normal text-muted-foreground">
+                    kcal
+                  </TableHead>
+                  <TableHead className="text-right font-normal text-muted-foreground">
+                    Protein
+                  </TableHead>
+                  <TableHead className="text-right font-normal text-muted-foreground">
+                    Carbs
+                  </TableHead>
+                  <TableHead className="text-right font-normal text-muted-foreground">
+                    Fat
+                  </TableHead>
+                  <TableHead className="text-right font-normal text-muted-foreground">
+                    Fiber
+                  </TableHead>
+                  <TableHead className="font-normal text-muted-foreground">Source</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {ingredients.map((i) => (
                   <TableRow key={i.id}>
-                    <TableCell>
-                      <Link href={`/ingredients/${i.id}`} className="font-medium hover:underline">
+                    <TableCell className="py-3 pl-0">
+                      <Link
+                        href={`/ingredients/${i.id}`}
+                        className="font-medium underline-offset-4 hover:underline"
+                      >
                         {i.name}
                       </Link>
-                      {i.brand && <div className="text-muted-foreground">{i.brand}</div>}
+                      {i.brand && (
+                        <div className="text-[13px] text-muted-foreground">{i.brand}</div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{formatKcal(i.kcal)}</TableCell>
                     <TableCell className="text-right tabular-nums">
@@ -89,26 +118,24 @@ export default async function IngredientsPage({ searchParams }: PageProps<'/ingr
                 ))}
               </TableBody>
             </Table>
-            <p className="mt-2 text-xs text-muted-foreground">Values per 100 g.</p>
+            <p className="mt-3 text-[13px] text-muted-foreground">Values per 100 g.</p>
           </div>
 
-          <ul className="space-y-2 md:hidden">
+          <ul className="divide-y md:hidden">
             {ingredients.map((i) => (
               <li key={i.id}>
-                <Link href={`/ingredients/${i.id}`}>
-                  <Card size="sm">
-                    <CardContent className="space-y-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="font-medium">{i.name}</div>
-                          {i.brand && <div className="text-muted-foreground">{i.brand}</div>}
-                        </div>
-                        <SourceBadge source={i.source} />
-                      </div>
-                      <MacroSummary macros={i} className="text-xs" />
-                      <span className="text-xs text-muted-foreground"> per 100 g</span>
-                    </CardContent>
-                  </Card>
+                <Link
+                  href={`/ingredients/${i.id}`}
+                  className="flex items-start justify-between gap-3 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[17px] leading-snug">{i.name}</p>
+                    {i.brand && <p className="text-[13px] text-muted-foreground">{i.brand}</p>}
+                    <p className="mt-1 text-[13px] text-muted-foreground">
+                      <MacroSummary macros={i} /> per 100 g
+                    </p>
+                  </div>
+                  <SourceBadge source={i.source} />
                 </Link>
               </li>
             ))}
