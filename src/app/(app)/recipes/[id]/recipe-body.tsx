@@ -62,16 +62,13 @@ export function RecipeBody({
   return (
     <div className="mt-10 grid gap-10 md:mt-14 md:gap-14 lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-x-16">
       <div className="space-y-10 lg:sticky lg:top-20 lg:-m-1 lg:max-h-[calc(100dvh-6rem)] lg:self-start lg:overflow-y-auto lg:p-1">
-        <MacroFigures
-          perServing={nutrition.perServing}
-          per100g={nutrition.per100g}
-          batch={{ kcal: total.kcal, servings }}
-        />
-
         <div className="flex items-center gap-4">
-          <span id="servings-label" className="mr-auto">
-            Servings
-          </span>
+          <div className="mr-auto">
+            <span id="servings-label">Servings</span>
+            <p className="text-[13px] text-muted-foreground tabular-nums">
+              {formatKcal(total.kcal)} kcal in total
+            </p>
+          </div>
           <Button
             variant="outline"
             size="icon"
@@ -97,6 +94,8 @@ export function RecipeBody({
             <Plus />
           </Button>
         </div>
+
+        <MacroFigures perServing={nutrition.perServing} per100g={nutrition.per100g} />
 
         <section className="space-y-3">
           <h2 className="text-2xl">Ingredients</h2>

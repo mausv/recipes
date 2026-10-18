@@ -63,12 +63,10 @@ export function Figures({
 export function MacroFigures({
   perServing,
   per100g,
-  batch,
   figuresClassName,
 }: {
   perServing: Macros
   per100g: Macros
-  batch?: { kcal: number; servings: number }
   figuresClassName?: string
 }) {
   const [basis, setBasis] = useState<'perServing' | 'per100g'>('perServing')
@@ -97,15 +95,9 @@ export function MacroFigures({
         ))}
       </div>
       <Figures macros={macros} size="lg" className={figuresClassName} />
-      <div className="space-y-1 text-[13px] text-muted-foreground tabular-nums">
-        <p>{formatGrams(macros.fiber)} g fiber</p>
-        {batch && (
-          <p>
-            {formatKcal(batch.kcal)} kcal for {batch.servings}{' '}
-            {batch.servings === 1 ? 'serving' : 'servings'}
-          </p>
-        )}
-      </div>
+      <p className="text-[13px] text-muted-foreground tabular-nums">
+        {formatGrams(macros.fiber)} g fiber
+      </p>
     </section>
   )
 }
