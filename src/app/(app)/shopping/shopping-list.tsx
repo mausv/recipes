@@ -23,6 +23,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import type { Locale } from '@/i18n'
+import { useLocale, useT } from '@/i18n/client'
+import { unitLabel } from '@/i18n/format'
 import { formatGrams } from '@/lib/nutrition'
 import type { applyPantry, ShoppingLine } from '@/lib/shopping'
 import { formatQuantity } from '@/lib/units'
@@ -36,17 +39,27 @@ export type ListItem = ShoppingLine & {
 
 type NeedRow = ReturnType<typeof applyPantry<ListItem>>[number]
 
-function amount(quantity: number | null, unit: string | null, grams: number | null) {
-  const display = quantity !== null && unit !== null ? `${formatQuantity(quantity)} ${unit}` : null
+function amount(
+  quantity: number | null,
+  unit: string | null,
+  grams: number | null,
+  locale: Locale
+) {
+  const display =
+    quantity !== null && unit !== null
+      ? `${formatQuantity(quantity)} ${unitLabel(unit, locale)}`
+      : null
   const weight = grams !== null && unit !== 'g' ? `${formatGrams(grams)} g` : null
   return { display, weight }
 }
 
 function haveLabel(grams: number | null) {
-  return grams === null ? 'some' : `${formatGrams(grams)} g`
+  return grams === null ? null : `${formatGrams(grams)} g`
 }
 
 export function ShoppingList({ needs, freeText }: { needs: NeedRow[]; freeText: ListItem[] }) {
+  const t = useT()
+  const locale = useLocale()
   const [pending, startTransition] = useTransition()
   const toBuy = needs.filter((n) => !n.covered)
   const covered = needs.filter((n) => n.covered)
@@ -64,11 +77,11 @@ export function ShoppingList({ needs, freeText }: { needs: NeedRow[]; freeText: 
   if (all.length === 0) {
     return (
       <div className="space-y-2 py-6">
-        <p className="font-heading text-2xl font-medium">Nothing to buy.</p>
+        <p className="font-heading text-2xl font-medium">{t.shopping.nothingToBuy}</p>
         <p className="text-muted-foreground">
-          Add an item above, or add the ingredients of a{' '}
+          {t.shopping.emptyHintBefore}{' '}
           <Link href="/" className="text-primary underline underline-offset-4">
-            recipe
+            {t.shopping.emptyHintLink}
           </Link>
           .
         </p>
@@ -88,7 +101,7 @@ export function ShoppingList({ needs, freeText }: { needs: NeedRow[]; freeText: 
 
       {freeText.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-xl">Other items</h2>
+          <h2 className="text-xl">{t.shopping.otherItems}</h2>
           <ul className="divide-y">
             {freeText.map((item) => (
               <Row
@@ -99,7 +112,7 @@ export function ShoppingList({ needs, freeText }: { needs: NeedRow[]; freeText: 
                 amount={
                   item.quantity === null
                     ? null
-                    : `${formatQuantity(item.quantity)} ${item.unit ?? ''}`.trim()
+                    : `${formatQuantity(item.quantity)} ${item.unit === null ? '' : unitLabel(item.unit, locale)}`.trim()
                 }
               />
             ))}
@@ -109,7 +122,7 @@ export function ShoppingList({ needs, freeText }: { needs: NeedRow[]; freeText: 
 
       {covered.length > 0 && (
         <section className="space-y-1 rounded-lg bg-secondary px-4 pt-4 pb-1">
-          <h2 className="text-xl">Covered by pantry</h2>
+          <h2 className="text-xl">{t.shopping.coveredByPantry}</h2>
           <ul className="divide-y divide-foreground/10 opacity-70">
             {covered.map((need) => (
               <NeedItem key={need.ingredientId} need={need} />
@@ -124,17 +137,17 @@ export function ShoppingList({ needs, freeText }: { needs: NeedRow[]; freeText: 
           size="sm"
           className="text-primary hover:text-primary"
           disabled={pending || !anyLinkedChecked}
-          onClick={() => run(markBoughtIntoPantry, 'Moved bought items to the pantry')}
+          onClick={() => run(markBoughtIntoPantry, t.shopping.movedBought)}
         >
-          Move bought to pantry
+          {t.shopping.moveBought}
         </Button>
         <Button
           variant="ghost"
           size="sm"
           disabled={pending || !anyChecked}
-          onClick={() => run(clearCheckedItems, 'Cleared bought items')}
+          onClick={() => run(clearCheckedItems, t.shopping.clearedBought)}
         >
-          Clear bought
+          {t.shopping.clearBought}
         </Button>
         <ClearAllButton />
       </div>
@@ -143,12 +156,14 @@ export function ShoppingList({ needs, freeText }: { needs: NeedRow[]; freeText: 
 }
 
 function NeedItem({ need }: { need: NeedRow }) {
+  const t = useT()
+  const locale = useLocale()
   const recipes = new Map<string, string>()
   for (const line of need.lines) if (line.recipe) recipes.set(line.recipe.id, line.recipe.title)
   const { display, weight } = need.covered
-    ? amount(need.quantity, need.unit, need.neededGrams)
-    : amount(need.toBuyQuantity, need.unit, need.toBuyGrams)
-  const hint = need.haveGrams === 0 ? null : `have ${haveLabel(need.haveGrams)} in pantry`
+    ? amount(need.quantity, need.unit, need.neededGrams, locale)
+    : amount(need.toBuyQuantity, need.unit, need.toBuyGrams, locale)
+  const hint = need.haveGrams === 0 ? null : t.shopping.haveInPantry(haveLabel(need.haveGrams))
 
   return (
     <Row
@@ -162,7 +177,7 @@ function NeedItem({ need }: { need: NeedRow }) {
           <p className="mt-0.5 flex flex-wrap gap-x-3 text-[13px] text-muted-foreground">
             {recipes.size > 0 && (
               <span>
-                for{' '}
+                {t.shopping.forRecipes}{' '}
                 {[...recipes].map(([id, title], index) => (
                   <span key={id}>
                     {index > 0 && ', '}
@@ -197,6 +212,7 @@ function Row({
   details?: React.ReactNode
 }) {
   const [optimistic, setOptimistic] = useOptimistic(checked)
+  const t = useT()
   const [pending, startTransition] = useTransition()
 
   function toggle(next: boolean) {
@@ -239,7 +255,7 @@ function Row({
         variant="ghost"
         size="icon"
         className="text-muted-foreground"
-        aria-label={`Remove ${name}`}
+        aria-label={t.shopping.remove(name)}
         disabled={pending}
         onClick={() =>
           startTransition(async () => {
@@ -254,6 +270,7 @@ function Row({
 }
 
 function ClearAllButton() {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 
@@ -261,7 +278,7 @@ function ClearAllButton() {
     startTransition(async () => {
       await clearShoppingList()
       setOpen(false)
-      toast.success('Shopping list cleared')
+      toast.success(t.shopping.listCleared)
     })
   }
 
@@ -276,19 +293,17 @@ function ClearAllButton() {
           />
         }
       >
-        Clear all
+        {t.shopping.clearAll}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Clear the shopping list?</DialogTitle>
-          <DialogDescription>
-            This removes every item. The pantry is not affected.
-          </DialogDescription>
+          <DialogTitle>{t.shopping.clearAllTitle}</DialogTitle>
+          <DialogDescription>{t.shopping.clearAllDescription}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+          <DialogClose render={<Button variant="outline" />}>{t.common.cancel}</DialogClose>
           <Button variant="destructive" onClick={confirm} disabled={pending}>
-            {pending ? 'Clearing…' : 'Clear all'}
+            {pending ? t.shopping.clearing : t.shopping.clearAll}
           </Button>
         </DialogFooter>
       </DialogContent>

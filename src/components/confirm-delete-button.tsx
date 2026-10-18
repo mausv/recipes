@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { useT, useTError } from '@/i18n/client'
 
 export function ConfirmDeleteButton({
   title,
@@ -28,6 +29,8 @@ export function ConfirmDeleteButton({
   redirectTo: string
 }) {
   const router = useRouter()
+  const t = useT()
+  const tError = useTError()
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 
@@ -35,7 +38,7 @@ export function ConfirmDeleteButton({
     startTransition(async () => {
       const { error } = await onConfirmAction()
       if (error) {
-        toast.error(error)
+        toast.error(tError(error))
         setOpen(false)
         return
       }
@@ -54,7 +57,7 @@ export function ConfirmDeleteButton({
         }
       >
         <Trash2 />
-        Delete
+        {t.common.delete}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -62,9 +65,9 @@ export function ConfirmDeleteButton({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+          <DialogClose render={<Button variant="outline" />}>{t.common.cancel}</DialogClose>
           <Button variant="destructive" onClick={confirm} disabled={pending}>
-            {pending ? 'Deleting…' : 'Delete'}
+            {pending ? t.recipes.deleting : t.common.delete}
           </Button>
         </DialogFooter>
       </DialogContent>

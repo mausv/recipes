@@ -1,0 +1,61 @@
+import type { groups as en } from '../en/groups'
+
+export const groups: typeof en = {
+  title: 'Grupos',
+  intro:
+    'Cada grupo tiene su propia lista de compras, despensa y plan de comidas. Las recetas que compartes en un grupo las ven sus miembros.',
+  manage: 'Administrar grupos',
+  active: 'Activo',
+  admin: 'Administrador',
+  member: 'Miembro',
+  memberCount: (count) => `${count} ${count === 1 ? 'miembro' : 'miembros'}`,
+  switch: 'Cambiar',
+  switchTo: (name) => `Cambiar a ${name}`,
+  newGroup: 'Nuevo grupo',
+  newGroupPlaceholder: 'Cabaña de fin de semana',
+  create: 'Crear grupo',
+  youAreAdmin: 'Eres administrador.',
+  youAreMember: 'Eres miembro.',
+  members: 'Miembros',
+  you: '(tú)',
+  joined: (date) => `se unió el ${date}`,
+  makeAdmin: 'Hacer administrador',
+  makeNameAdmin: (name) => `Hacer administrador a ${name}`,
+  remove: (name) => `Quitar a ${name}`,
+  rename: 'Cambiar nombre del grupo',
+  name: 'Nombre del grupo',
+  saveName: 'Guardar nombre',
+  inviteLinks: 'Enlaces de invitación',
+  inviteLinksDescription:
+    'Cualquier persona con el enlace puede unirse durante 7 días o hasta que lo revoques.',
+  inviteCreated: (date, name) => `Creado el ${date} por ${name}`,
+  inviteExpires: (date) => `Vence el ${date}`,
+  inviteLink: 'Enlace de invitación',
+  inviteLinkName: 'enlace de invitación',
+  createInviteLink: 'Crear enlace de invitación',
+  copyLinkNow: 'Copia este enlace ahora, no se volverá a mostrar.',
+  leave: 'Salir del grupo',
+  leaving: 'Saliendo…',
+  left: (name) => `Saliste de ${name}`,
+  leaveOnlyMember: 'Eres el único miembro, así que al salir se elimina el grupo.',
+  leaveNeedsAdmin:
+    'Un grupo siempre necesita un administrador. Si eres el único, primero haz administrador a alguien más.',
+  deleteGroup: 'Eliminar grupo',
+  deleteGroupDescription:
+    'Elimina el grupo para todos, con su lista de compras, despensa y plan de comidas. Las recetas compartidas se quedan con sus dueños.',
+  deleteTitle: (name) => `¿Eliminar ${name}?`,
+  deleteConfirm:
+    'Todos pierden el acceso a su lista de compras, despensa, plan de comidas y recetas compartidas. No se puede deshacer.',
+  inviteInvalid: 'Este enlace de invitación ya no funciona',
+  inviteInvalidDescription: 'Venció o fue revocado. Pídele uno nuevo a alguien del grupo.',
+  goToRecipes: 'Ir a tus recetas',
+  joinName: (name) => `Unirse a ${name}`,
+  invitedYou: (by, count) =>
+    `${by} te invitó. El grupo tiene ${count} ${count === 1 ? 'miembro' : 'miembros'}.`,
+  joinDescription:
+    'Los miembros comparten lista de compras, despensa y plan de comidas, y pueden cocinar las recetas compartidas en el grupo.',
+  alreadyMember: 'Ya estás en este grupo.',
+  open: 'Abrir grupo',
+  join: 'Unirse al grupo',
+  joining: 'Uniéndote…',
+}

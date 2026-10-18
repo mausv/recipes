@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getActiveGroup } from '@/lib/active-group'
+import { getT } from '@/lib/i18n-server'
 import { formatKcal } from '@/lib/nutrition'
 import { listRecipes, listTags, type RecipeScope } from '@/lib/recipes'
 import { requireUser } from '@/lib/session'
@@ -32,6 +33,7 @@ export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
   const scope = parseScope(scopeParam)
   const user = await requireUser()
   const group = await getActiveGroup(user.id)
+  const t = await getT()
   const recipes = listRecipes({
     userId: user.id,
     groupId: group.id,
@@ -42,14 +44,14 @@ export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
   const tags = listTags({ userId: user.id, groupId: group.id, scope })
   const filtered = Boolean(query || activeTag)
   const scopes: { value: RecipeScope; label: string }[] = [
-    { value: 'all', label: 'All' },
-    { value: 'mine', label: 'Mine' },
-    { value: 'group', label: `Shared with ${group.name}` },
+    { value: 'all', label: t.recipes.scopeAll },
+    { value: 'mine', label: t.recipes.scopeMine },
+    { value: 'group', label: t.recipes.scopeGroup(group.name) },
   ]
 
   return (
     <div className="space-y-6">
-      <h1 className="sr-only">Recipes</h1>
+      <h1 className="sr-only">{t.recipes.title}</h1>
       <div className="flex items-center gap-3">
         <Form action="/" className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -57,8 +59,8 @@ export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
             name="q"
             type="search"
             defaultValue={query}
-            placeholder="Search recipes"
-            aria-label="Search recipes"
+            placeholder={t.recipes.search}
+            aria-label={t.recipes.search}
             className="rounded-full pl-10"
           />
           {activeTag && <input type="hidden" name="tag" value={activeTag} />}
@@ -66,11 +68,14 @@ export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
         </Form>
         <Link href="/recipes/new" className={buttonVariants()}>
           <Plus />
-          New recipe
+          {t.recipes.newRecipe}
         </Link>
       </div>
 
-      <nav aria-label="Recipe scope" className="flex max-w-full rounded-full bg-secondary p-1">
+      <nav
+        aria-label={t.recipes.scopeLabel}
+        className="flex max-w-full rounded-full bg-secondary p-1"
+      >
         {scopes.map((s) => (
           <Link
             key={s.value}
@@ -90,19 +95,19 @@ export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
 
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {tags.map((t) => (
+          {tags.map((tagName) => (
             <Link
-              key={t}
-              href={href(query, t === activeTag ? '' : t, scope)}
-              aria-current={t === activeTag ? 'true' : undefined}
+              key={tagName}
+              href={href(query, tagName === activeTag ? '' : tagName, scope)}
+              aria-current={tagName === activeTag ? 'true' : undefined}
               className={cn(
                 'relative flex h-9 items-center rounded-full border px-3.5 text-sm transition-colors after:absolute after:-inset-y-1',
-                t === activeTag
+                tagName === activeTag
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              {t}
+              {tagName}
             </Link>
           ))}
         </div>
@@ -112,10 +117,10 @@ export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
         <div className="space-y-2 py-12">
           {filtered ? (
             <>
-              <p className="font-heading text-2xl font-medium">No recipes match.</p>
+              <p className="font-heading text-2xl font-medium">{t.recipes.noMatch}</p>
               <p className="text-muted-foreground">
                 <Link href={href('', '', scope)} className={linkClass}>
-                  Clear the search
+                  {t.recipes.clearSearch}
                 </Link>
                 .
               </p>
@@ -123,18 +128,18 @@ export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
           ) : scope === 'group' ? (
             <>
               <p className="font-heading text-2xl font-medium">
-                Nothing shared with {group.name} yet.
+                {t.recipes.nothingShared(group.name)}
               </p>
-              <p className="text-muted-foreground">Share one of yours from its page.</p>
+              <p className="text-muted-foreground">{t.recipes.shareFromPage}</p>
             </>
           ) : (
             <>
               <p className="font-heading text-2xl font-medium">
-                {scope === 'mine' ? 'You haven’t added a recipe yet.' : 'No recipes yet.'}
+                {scope === 'mine' ? t.recipes.noneMine : t.recipes.none}
               </p>
               <p className="text-muted-foreground">
                 <Link href="/recipes/new" className={linkClass}>
-                  Add the first one
+                  {t.recipes.addFirst}
                 </Link>
                 .
               </p>
@@ -169,20 +174,21 @@ export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
                   {r.title}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground tabular-nums">
-                  {r.servings} {r.servings === 1 ? 'serving' : 'servings'},{' '}
-                  {formatKcal(r.kcalPerServing)} kcal each
+                  {t.recipes.cardSummary(r.servings, formatKcal(r.kcalPerServing))}
                 </p>
                 {r.createdById !== user.id && (
-                  <p className="mt-1 text-sm text-muted-foreground">Shared by {r.ownerName}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {t.recipes.sharedBy(r.ownerName)}
+                  </p>
                 )}
                 {r.tags.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {r.tags.map((t) => (
+                    {r.tags.map((tagName) => (
                       <span
-                        key={t}
+                        key={tagName}
                         className="rounded-full bg-secondary px-2.5 py-1 text-[13px] leading-none text-secondary-foreground"
                       >
-                        {t}
+                        {tagName}
                       </span>
                     ))}
                   </div>

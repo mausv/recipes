@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { useT, useTError } from '@/i18n/client'
 import { authClient } from '@/lib/auth-client'
 import { signedOAuthQuery } from '@/lib/oauth-query'
 import { useLocationSearch } from '@/lib/use-location-search'
@@ -13,6 +14,8 @@ import { nextPath } from '@/lib/utils'
 
 export function SignupForm() {
   const router = useRouter()
+  const t = useT()
+  const tError = useTError()
   const search = useLocationSearch()
   const [error, setError] = useState<string>()
   const [pending, setPending] = useState(false)
@@ -30,7 +33,7 @@ export function SignupForm() {
       },
     })
     setPending(false)
-    if (error) return setError(error.message ?? 'Sign up failed')
+    if (error) return setError(error.message ? tError(error.message) : t.auth.signUpFailed)
     if ('redirect' in data) return
     router.push(nextPath(search))
     router.refresh()
@@ -39,21 +42,21 @@ export function SignupForm() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl">Create account</h1>
-        <p className="text-muted-foreground">You need an invite code to join.</p>
+        <h1 className="text-2xl">{t.auth.createAccount}</h1>
+        <p className="text-muted-foreground">{t.auth.inviteRequired}</p>
       </div>
       <form onSubmit={onSubmit}>
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="name">Name</FieldLabel>
+            <FieldLabel htmlFor="name">{t.auth.name}</FieldLabel>
             <Input id="name" name="name" autoComplete="name" required />
           </Field>
           <Field>
-            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <FieldLabel htmlFor="email">{t.auth.email}</FieldLabel>
             <Input id="email" name="email" type="email" autoComplete="email" required />
           </Field>
           <Field>
-            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <FieldLabel htmlFor="password">{t.auth.password}</FieldLabel>
             <Input
               id="password"
               name="password"
@@ -64,17 +67,17 @@ export function SignupForm() {
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="inviteCode">Invite code</FieldLabel>
+            <FieldLabel htmlFor="inviteCode">{t.auth.inviteCode}</FieldLabel>
             <Input id="inviteCode" name="inviteCode" autoComplete="off" required />
           </Field>
           <FieldError>{error}</FieldError>
           <Button type="submit" disabled={pending}>
-            {pending ? 'Creating account…' : 'Sign up'}
+            {pending ? t.auth.creatingAccount : t.auth.signUp}
           </Button>
           <p className="text-sm text-muted-foreground">
-            Already have an account?{' '}
+            {t.auth.haveAccount}{' '}
             <Link href={`/login${search}`} className="text-primary underline underline-offset-4">
-              Sign in
+              {t.auth.signIn}
             </Link>
           </p>
         </FieldGroup>

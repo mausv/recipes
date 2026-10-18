@@ -147,11 +147,16 @@ describe('monthDays', () => {
 
 describe('formatDay', () => {
   it('writes the weekday, day and month', () => {
-    expect(formatDay(WEDNESDAY)).toBe('Wednesday 14 October')
+    expect(formatDay(WEDNESDAY, 'en')).toBe('Wednesday, October 14')
+  })
+
+  it('writes Spanish weekday and month names', () => {
+    expect(formatDay(WEDNESDAY, 'es')).toBe('miércoles, 14 de octubre')
+    expect(formatDay(WEDNESDAY, 'es', { month: 'long', year: 'numeric' })).toBe('octubre de 2026')
   })
 
   it('accepts other format options', () => {
-    expect(formatDay(WEDNESDAY, { day: 'numeric', month: 'long' })).toBe('14 October')
+    expect(formatDay(WEDNESDAY, 'en', { day: 'numeric', month: 'long' })).toBe('October 14')
   })
 })
 

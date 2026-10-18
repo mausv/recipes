@@ -1,6 +1,8 @@
 import { and, asc, between, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { mealPlanEntry, recipe, user } from '@/db/schema'
+import type { Locale } from '@/i18n'
+import { intlLocale } from '@/i18n/format'
 import { canViewRecipe, visibleRecipeFilter } from './access'
 import { isMember } from './groups'
 import { SLOTS, type Slot } from './validation/meal-plan'
@@ -43,9 +45,12 @@ export function monthDays(yyyyMm: string) {
 
 export function formatDay(
   date: string,
+  locale: Locale,
   options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long' }
 ) {
-  return new Intl.DateTimeFormat('en-GB', { ...options, timeZone: 'UTC' }).format(toUtc(date))
+  return new Intl.DateTimeFormat(intlLocale(locale), { ...options, timeZone: 'UTC' }).format(
+    toUtc(date)
+  )
 }
 
 export function isToday(date: string, today: string) {

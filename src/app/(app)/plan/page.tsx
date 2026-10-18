@@ -13,6 +13,7 @@ import {
   localDate,
   mondayOf,
 } from '@/lib/meal-plan'
+import { getLocale, getT } from '@/lib/i18n-server'
 import { listRecipes } from '@/lib/recipes'
 import { requireUser } from '@/lib/session'
 import { dateSchema, monthSchema } from '@/lib/validation/meal-plan'
@@ -31,7 +32,7 @@ function PlanHeader({
   title: string
   previous: { href: string; label: string }
   next: { href: string; label: string }
-  today: string
+  today: { href: string; label: string }
   toggle: { href: string; label: string }
   children?: React.ReactNode
 }) {
@@ -47,8 +48,8 @@ function PlanHeader({
         >
           <ChevronLeft />
         </Link>
-        <Link href={today} className={quiet}>
-          Today
+        <Link href={today.href} className={quiet}>
+          {today.label}
         </Link>
         <Link
           href={next.href}
@@ -71,6 +72,10 @@ export default async function PlanPage({ searchParams }: PageProps<'/plan'>) {
   const user = await requireUser()
   const { id: groupId } = await getActiveGroup(user.id)
   const today = localDate(new Date())
+  const locale = await getLocale()
+  const t = await getT()
+  const weekday = (date: string) => formatDay(date, locale, { weekday: 'short' })
+  const dayNumber = (date: string) => formatDay(date, locale, { day: 'numeric' })
 
   if (view === 'month') {
     const shown = monthSchema.safeParse(month).data ?? today.slice(0, 7)
@@ -80,21 +85,21 @@ export default async function PlanPage({ searchParams }: PageProps<'/plan'>) {
     return (
       <div className="space-y-6">
         <PlanHeader
-          title={formatDay(`${shown}-01`, { month: 'long', year: 'numeric' })}
-          previous={{ href: monthHref(addMonths(shown, -1)), label: 'Previous month' }}
-          next={{ href: monthHref(addMonths(shown, 1)), label: 'Next month' }}
-          today="/plan?view=month"
+          title={formatDay(`${shown}-01`, locale, { month: 'long', year: 'numeric' })}
+          previous={{ href: monthHref(addMonths(shown, -1)), label: t.plan.previousMonth }}
+          next={{ href: monthHref(addMonths(shown, 1)), label: t.plan.nextMonth }}
+          today={{ href: '/plan?view=month', label: t.plan.today }}
           toggle={{
             href: today.startsWith(shown) ? '/plan' : `/plan?week=${shown}-01`,
-            label: 'Week',
+            label: t.plan.week,
           }}
         />
         <MonthView
-          weekdays={days.slice(0, 7).map((d) => formatDay(d.date, { weekday: 'short' }))}
+          weekdays={days.slice(0, 7).map((d) => weekday(d.date))}
           days={days.map((d) => ({
             ...d,
-            label: formatDay(d.date),
-            dayNumber: formatDay(d.date, { day: 'numeric' }),
+            label: formatDay(d.date, locale),
+            dayNumber: dayNumber(d.date),
             inMonth: d.date.startsWith(shown),
             today: isToday(d.date, today),
           }))}
@@ -118,11 +123,11 @@ export default async function PlanPage({ searchParams }: PageProps<'/plan'>) {
   return (
     <div className="space-y-6">
       <PlanHeader
-        title={`Week of ${formatDay(monday, { day: 'numeric', month: 'long' })}`}
-        previous={{ href: weekHref(addDays(monday, -7)), label: 'Previous week' }}
-        next={{ href: weekHref(addDays(monday, 7)), label: 'Next week' }}
-        today="/plan"
-        toggle={{ href: `/plan?view=month&month=${monday.slice(0, 7)}`, label: 'Month' }}
+        title={t.plan.weekOf(formatDay(monday, locale, { day: 'numeric', month: 'long' }))}
+        previous={{ href: weekHref(addDays(monday, -7)), label: t.plan.previousWeek }}
+        next={{ href: weekHref(addDays(monday, 7)), label: t.plan.nextWeek }}
+        today={{ href: '/plan', label: t.plan.today }}
+        toggle={{ href: `/plan?view=month&month=${monday.slice(0, 7)}`, label: t.plan.month }}
       >
         <AddWeekButton monday={monday} />
       </PlanHeader>
@@ -130,8 +135,8 @@ export default async function PlanPage({ searchParams }: PageProps<'/plan'>) {
         recipes={recipes}
         days={days.map((d) => ({
           ...d,
-          label: formatDay(d.date),
-          shortLabel: formatDay(d.date, { weekday: 'short', day: 'numeric' }),
+          label: formatDay(d.date, locale),
+          shortLabel: `${weekday(d.date)} ${dayNumber(d.date)}`,
           today: isToday(d.date, today),
         }))}
       />

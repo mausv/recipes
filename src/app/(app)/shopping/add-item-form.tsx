@@ -6,6 +6,8 @@ import { toast } from 'sonner'
 import { addShoppingItem } from '@/actions/shopping'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useLocale, useT, useTError } from '@/i18n/client'
+import { unitLabel } from '@/i18n/format'
 import type { IngredientWithUnits } from '@/lib/ingredients'
 import { builtInUnitsFor } from '@/lib/units'
 import { IngredientPicker } from './ingredient-picker'
@@ -16,6 +18,9 @@ export function AddItemForm({ library }: { library: IngredientWithUnits[] }) {
   const [quantity, setQuantity] = useState('')
   const [unit, setUnit] = useState('')
   const [pending, startTransition] = useTransition()
+  const t = useT()
+  const tError = useTError()
+  const locale = useLocale()
 
   const custom = linked?.units ?? []
   const units = [...builtInUnitsFor(custom), ...custom].map((u) => u.name)
@@ -40,7 +45,7 @@ export function AddItemForm({ library }: { library: IngredientWithUnits[] }) {
         unit: amount === null ? null : unit,
         ingredientId: linked?.id ?? null,
       })
-      if (result.error !== undefined) return void toast.error(result.error)
+      if (result.error !== undefined) return void toast.error(tError(result.error))
       setName('')
       setLinked(null)
       setQuantity('')
@@ -54,8 +59,8 @@ export function AddItemForm({ library }: { library: IngredientWithUnits[] }) {
       className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
     >
       <Input
-        aria-label="Item"
-        placeholder="Add an item"
+        aria-label={t.shopping.itemLabel}
+        placeholder={t.shopping.addItemPlaceholder}
         value={name}
         onChange={(e) => rename(e.target.value)}
         required
@@ -65,38 +70,40 @@ export function AddItemForm({ library }: { library: IngredientWithUnits[] }) {
         library={library}
         value={linked?.id ?? null}
         onSelectAction={link}
-        label="Link to an ingredient"
+        label={t.shopping.linkIngredient}
         className={linked ? 'border-primary text-primary' : 'text-muted-foreground'}
       >
         <Carrot />
-        <span className="sr-only sm:not-sr-only">{linked ? 'Linked' : 'Link'}</span>
+        <span className="sr-only sm:not-sr-only">
+          {linked ? t.shopping.linked : t.shopping.link}
+        </span>
       </IngredientPicker>
       {name.trim() && (
         <div className="col-span-2 grid grid-cols-[5rem_minmax(0,1fr)_auto] gap-2 sm:col-span-1 sm:grid-cols-[5rem_6rem_auto]">
           <Input
-            aria-label="Quantity"
+            aria-label={t.shopping.quantity}
             type="number"
             inputMode="decimal"
             min={0}
             step="any"
-            placeholder="Qty"
+            placeholder={t.shopping.quantityPlaceholder}
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
           />
           <Input
-            aria-label="Unit"
-            placeholder="Unit"
+            aria-label={t.shopping.unit}
+            placeholder={t.shopping.unit}
             list="shopping-units"
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
           />
           <datalist id="shopping-units">
             {units.map((u) => (
-              <option key={u} value={u} />
+              <option key={u} value={u} label={unitLabel(u, locale)} />
             ))}
           </datalist>
           <Button type="submit" disabled={pending}>
-            Add
+            {t.shopping.add}
           </Button>
         </div>
       )}

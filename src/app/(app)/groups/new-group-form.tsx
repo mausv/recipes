@@ -6,9 +6,12 @@ import { createGroup } from '@/actions/groups'
 import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { useT, useTError } from '@/i18n/client'
 
 export function NewGroupForm() {
   const router = useRouter()
+  const t = useT()
+  const tError = useTError()
   const [name, setName] = useState('')
   const [error, setError] = useState<string>()
   const [pending, startTransition] = useTransition()
@@ -18,7 +21,7 @@ export function NewGroupForm() {
     startTransition(async () => {
       const result = await createGroup({ name })
       if (result.error !== undefined) {
-        setError(result.error)
+        setError(tError(result.error))
         return
       }
       router.push(`/groups/${result.id}`)
@@ -29,16 +32,16 @@ export function NewGroupForm() {
     <form onSubmit={submit}>
       <FieldGroup>
         <Field>
-          <FieldLabel htmlFor="group-name">New group</FieldLabel>
+          <FieldLabel htmlFor="group-name">{t.groups.newGroup}</FieldLabel>
           <div className="flex gap-2">
             <Input
               id="group-name"
-              placeholder="Weekend cabin"
+              placeholder={t.groups.newGroupPlaceholder}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
             <Button type="submit" disabled={pending || !name.trim()}>
-              {pending ? 'Creating…' : 'Create group'}
+              {pending ? t.common.creating : t.groups.create}
             </Button>
           </div>
           {error && <FieldError>{error}</FieldError>}

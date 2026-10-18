@@ -31,6 +31,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { useLocale, useT, useTError } from '@/i18n/client'
+import { unitLabel } from '@/i18n/format'
 import type { IngredientWithUnits } from '@/lib/ingredients'
 import { computeRecipeBreakdown, formatGrams } from '@/lib/nutrition'
 import { builtInUnitsFor, isKnownUnit, toGrams } from '@/lib/units'
@@ -52,11 +54,13 @@ let nextKey = 0
 function unitGroups(ingredient: IngredientWithUnits | undefined) {
   const custom = ingredient?.units ?? []
   const builtIn = builtInUnitsFor(custom)
-  return [
-    { label: 'Weight', units: builtIn.filter((u) => u.kind === 'weight') },
-    { label: 'Volume', units: builtIn.filter((u) => u.kind === 'volume') },
-    { label: 'Ingredient units', units: custom.map((u) => ({ name: u.name, label: u.name })) },
-  ].filter((group) => group.units.length)
+  return (
+    [
+      { key: 'weight', units: builtIn.filter((u) => u.kind === 'weight') },
+      { key: 'volume', units: builtIn.filter((u) => u.kind === 'volume') },
+      { key: 'ingredientUnits', units: custom },
+    ] as const
+  ).filter((group) => group.units.length)
 }
 
 export function RecipeForm({
@@ -67,6 +71,9 @@ export function RecipeForm({
   recipe?: RecipeInput & { id: string }
 }) {
   const router = useRouter()
+  const t = useT()
+  const tError = useTError()
+  const locale = useLocale()
   const byId = new Map(library.map((i) => [i.id, i]))
 
   const [title, setTitle] = useState(recipe?.title ?? '')
@@ -109,7 +116,7 @@ export function RecipeForm({
   })
   const groupNames = [...new Set(lines.map((l) => l.groupName.trim()).filter(Boolean))]
   const cancelHref = recipe ? `/recipes/${recipe.id}` : '/'
-  const saveLabel = pending ? 'Saving…' : 'Save recipe'
+  const saveLabel = pending ? t.recipes.saving : t.recipes.saveRecipe
 
   function updateLine(key: number, patch: Partial<Line>) {
     setLines((rows) => rows.map((row) => (row.key === key ? { ...row, ...patch } : row)))
@@ -160,10 +167,10 @@ export function RecipeForm({
       const result = recipe ? await updateRecipe(recipe.id, input) : await createRecipe(input)
       if (result.error !== undefined) {
         setError(result.error)
-        toast.error(result.error)
+        toast.error(tError(result.error))
         return
       }
-      toast.success(recipe ? 'Recipe saved' : 'Recipe created')
+      toast.success(recipe ? t.recipes.recipeSaved : t.recipes.recipeCreated)
       router.push(`/recipes/${result.id}`)
     })
   }
@@ -172,11 +179,11 @@ export function RecipeForm({
     <form onSubmit={submit} className="pb-16 lg:pb-0">
       <div className="mb-8 flex items-center justify-between gap-4 bg-background md:sticky md:top-14 md:z-30 md:-mt-4 md:mb-10 md:border-b md:py-4">
         <h1 className="text-[32px] leading-tight tracking-[-0.01em]">
-          {recipe ? 'Edit recipe' : 'New recipe'}
+          {recipe ? t.recipes.editRecipe : t.recipes.newRecipe}
         </h1>
         <div className="hidden items-center gap-1 md:flex">
           <Link href={cancelHref} className={buttonVariants({ variant: 'ghost' })}>
-            Cancel
+            {t.common.cancel}
           </Link>
           <Button type="submit" disabled={pending}>
             {saveLabel}
@@ -187,30 +194,30 @@ export function RecipeForm({
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-14">
         <div className="min-w-0 space-y-10 md:space-y-14">
           <section className="space-y-5">
-            <h2 className="text-2xl">Basics</h2>
+            <h2 className="text-2xl">{t.recipes.basics}</h2>
             <Field>
-              <FieldLabel htmlFor="title">Title</FieldLabel>
+              <FieldLabel htmlFor="title">{t.recipes.titleLabel}</FieldLabel>
               <Input
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Overnight oats"
+                placeholder={t.recipes.titlePlaceholder}
                 required
                 className="h-14 font-heading text-2xl sm:h-14"
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="description">Description</FieldLabel>
+              <FieldLabel htmlFor="description">{t.recipes.description}</FieldLabel>
               <Textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Optional"
+                placeholder={t.recipes.optional}
               />
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="servings">Servings</FieldLabel>
+                <FieldLabel htmlFor="servings">{t.recipes.servings}</FieldLabel>
                 <Input
                   id="servings"
                   type="number"
@@ -223,7 +230,7 @@ export function RecipeForm({
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="cookedWeight">Cooked weight (g)</FieldLabel>
+                <FieldLabel htmlFor="cookedWeight">{t.recipes.cookedWeight}</FieldLabel>
                 <Input
                   id="cookedWeight"
                   type="number"
@@ -232,15 +239,13 @@ export function RecipeForm({
                   step="any"
                   value={cookedWeight}
                   onChange={(e) => setCookedWeight(e.target.value)}
-                  placeholder="Optional"
+                  placeholder={t.recipes.optional}
                 />
-                <FieldDescription>
-                  Weigh the finished dish to make per-100 g values accurate.
-                </FieldDescription>
+                <FieldDescription>{t.recipes.cookedWeightHint}</FieldDescription>
               </Field>
             </div>
             <Field>
-              <FieldLabel htmlFor="tags">Tags</FieldLabel>
+              <FieldLabel htmlFor="tags">{t.recipes.tags}</FieldLabel>
               <div className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-lg border border-input px-2 py-1.5 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 sm:min-h-10 dark:bg-input/30">
                 {tags.map((tag) => (
                   <span
@@ -250,8 +255,8 @@ export function RecipeForm({
                     {tag}
                     <button
                       type="button"
-                      aria-label={`Remove tag ${tag}`}
-                      onClick={() => setTags(tags.filter((t) => t !== tag))}
+                      aria-label={t.recipes.removeTag(tag)}
+                      onClick={() => setTags(tags.filter((other) => other !== tag))}
                       className="relative flex size-6 items-center justify-center rounded-full text-muted-foreground after:absolute after:-inset-2 hover:text-foreground"
                     >
                       <X className="size-3.5" />
@@ -264,30 +269,30 @@ export function RecipeForm({
                   onChange={(e) => setTagDraft(e.target.value)}
                   onKeyDown={tagKey}
                   onBlur={commitTag}
-                  placeholder={tags.length ? '' : 'breakfast, quick'}
+                  placeholder={tags.length ? '' : t.recipes.tagsPlaceholder}
                   className="h-7 min-w-24 flex-1 bg-transparent px-1 text-base outline-none placeholder:text-muted-foreground"
                 />
               </div>
-              <FieldDescription>Press Enter or comma to add a tag.</FieldDescription>
+              <FieldDescription>{t.recipes.tagsHint}</FieldDescription>
             </Field>
           </section>
 
           <section className="space-y-5">
-            <h2 className="text-2xl">Photo</h2>
+            <h2 className="text-2xl">{t.recipes.photo}</h2>
             <CoverPicker imageId={coverImageId} onChange={setCoverImageId} />
           </section>
 
           <section className="space-y-4">
             <div className="space-y-1">
-              <h2 className="text-2xl">Ingredients</h2>
+              <h2 className="text-2xl">{t.recipes.ingredients}</h2>
               <p className="text-sm text-muted-foreground">
-                Missing one?{' '}
+                {t.recipes.missingIngredient}{' '}
                 <Link
                   href="/ingredients/new"
                   target="_blank"
                   className="text-primary underline underline-offset-4"
                 >
-                  Add it to the library
+                  {t.recipes.addToLibrary}
                 </Link>
                 .
               </p>
@@ -299,10 +304,10 @@ export function RecipeForm({
             </datalist>
             {lines.length > 0 && (
               <div className="hidden grid-cols-[80px_120px_minmax(0,1fr)_160px_40px] gap-x-2 text-[13px] text-muted-foreground sm:grid">
-                <span>Quantity</span>
-                <span>Unit</span>
-                <span>Ingredient</span>
-                <span>Group</span>
+                <span>{t.recipes.quantity}</span>
+                <span>{t.recipes.unit}</span>
+                <span>{t.recipes.ingredient}</span>
+                <span>{t.recipes.group}</span>
               </div>
             )}
             <ul className="divide-y sm:divide-y-0">
@@ -314,12 +319,12 @@ export function RecipeForm({
                     className="grid grid-cols-[88px_minmax(0,1fr)_44px] gap-2 py-3 first:pt-0 sm:grid-cols-[80px_120px_minmax(0,1fr)_160px_40px] sm:py-1"
                   >
                     <Input
-                      aria-label="Quantity"
+                      aria-label={t.recipes.quantity}
                       type="number"
                       inputMode="decimal"
                       min={0}
                       step="any"
-                      placeholder="Qty"
+                      placeholder={t.recipes.quantityShort}
                       value={line.quantity}
                       onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
                       required
@@ -328,16 +333,16 @@ export function RecipeForm({
                       value={line.unit}
                       onValueChange={(unit) => unit && updateLine(line.key, { unit })}
                     >
-                      <SelectTrigger aria-label="Unit" className="w-full">
-                        <SelectValue />
+                      <SelectTrigger aria-label={t.recipes.unit} className="w-full">
+                        <SelectValue>{(unit: string) => unitLabel(unit, locale)}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {unitGroups(ingredient).map((group) => (
-                          <SelectGroup key={group.label}>
-                            <SelectLabel>{group.label}</SelectLabel>
+                          <SelectGroup key={group.key}>
+                            <SelectLabel>{t.recipes[group.key]}</SelectLabel>
                             {group.units.map((u) => (
                               <SelectItem key={u.name} value={u.name}>
-                                {u.label}
+                                {unitLabel(u.name, locale)}
                               </SelectItem>
                             ))}
                           </SelectGroup>
@@ -351,8 +356,8 @@ export function RecipeForm({
                       className="col-span-3 sm:col-span-1"
                     />
                     <Input
-                      aria-label="Group"
-                      placeholder="Group"
+                      aria-label={t.recipes.group}
+                      placeholder={t.recipes.group}
                       list="ingredient-groups"
                       value={line.groupName}
                       onChange={(e) => updateLine(line.key, { groupName: e.target.value })}
@@ -370,14 +375,14 @@ export function RecipeForm({
                         onClick={() => updateLine(line.key, { showGroup: true })}
                       >
                         <Plus />
-                        Add group
+                        {t.recipes.addGroup}
                       </Button>
                     )}
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      aria-label="Remove ingredient"
+                      aria-label={t.recipes.removeIngredient}
                       className="col-start-3 row-start-1 text-muted-foreground sm:col-start-5"
                       onClick={() => setLines((rows) => rows.filter((r) => r.key !== line.key))}
                     >
@@ -409,12 +414,12 @@ export function RecipeForm({
               }
             >
               <Plus />
-              Add ingredient
+              {t.recipes.addIngredient}
             </Button>
           </section>
 
           <section className="space-y-6">
-            <h2 className="text-2xl">Steps</h2>
+            <h2 className="text-2xl">{t.recipes.steps}</h2>
             <ol className="space-y-6">
               {steps.map((step, index) => (
                 <li key={step.key} className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3">
@@ -423,7 +428,7 @@ export function RecipeForm({
                   </span>
                   <div className="space-y-2">
                     <Textarea
-                      aria-label={`Step ${index + 1}`}
+                      aria-label={t.recipes.step(index + 1)}
                       value={step.text}
                       onChange={(e) => updateStep(step.key, { text: e.target.value })}
                       className="text-[17px] leading-[1.65]"
@@ -439,7 +444,7 @@ export function RecipeForm({
                           type="button"
                           variant="ghost"
                           size="icon-sm"
-                          aria-label="Move step up"
+                          aria-label={t.recipes.moveStepUp}
                           disabled={index === 0}
                           onClick={() => setSteps((rows) => move(rows, index, index - 1))}
                         >
@@ -449,7 +454,7 @@ export function RecipeForm({
                           type="button"
                           variant="ghost"
                           size="icon-sm"
-                          aria-label="Move step down"
+                          aria-label={t.recipes.moveStepDown}
                           disabled={index === steps.length - 1}
                           onClick={() => setSteps((rows) => move(rows, index, index + 1))}
                         >
@@ -459,7 +464,7 @@ export function RecipeForm({
                           type="button"
                           variant="ghost"
                           size="icon-sm"
-                          aria-label="Remove step"
+                          aria-label={t.recipes.removeStep}
                           onClick={() => setSteps((rows) => rows.filter((r) => r.key !== step.key))}
                         >
                           <X />
@@ -479,15 +484,15 @@ export function RecipeForm({
               }
             >
               <Plus />
-              Add step
+              {t.recipes.addStep}
             </Button>
           </section>
 
           <div className="space-y-4 border-t pt-6">
-            <FieldError>{error}</FieldError>
+            <FieldError>{error && tError(error)}</FieldError>
             <div className="flex items-center justify-end gap-1">
               <Link href={cancelHref} className={buttonVariants({ variant: 'ghost' })}>
-                Cancel
+                {t.common.cancel}
               </Link>
               <Button type="submit" disabled={pending}>
                 {saveLabel}
@@ -496,17 +501,16 @@ export function RecipeForm({
           </div>
         </div>
 
-        <aside aria-label="Nutrition" className="hidden lg:block">
+        <aside aria-label={t.recipes.nutrition} className="hidden lg:block">
           <div className="sticky top-40 space-y-4">
-            <h2 className="text-2xl">Nutrition</h2>
+            <h2 className="text-2xl">{t.recipes.nutrition}</h2>
             <MacroFigures
               perServing={nutrition.perServing}
               per100g={nutrition.per100g}
               figuresClassName="grid-cols-2 gap-y-6"
             />
             <p className="text-[13px] text-muted-foreground tabular-nums">
-              From {formatGrams(nutrition.totalGrams)} g of ingredients, {servingsCount}{' '}
-              {servingsCount === 1 ? 'serving' : 'servings'}.
+              {t.recipes.nutritionFrom(formatGrams(nutrition.totalGrams), servingsCount)}
             </p>
           </div>
         </aside>
@@ -515,7 +519,7 @@ export function RecipeForm({
       <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t bg-background md:bottom-0 md:pb-[env(safe-area-inset-bottom)] lg:hidden">
         <div className="mx-auto flex max-w-[1040px] items-center gap-4 px-4 py-2.5 md:px-6">
           <span className="w-16 shrink-0 text-[13px] leading-tight text-muted-foreground">
-            Per serving
+            {t.recipes.perServing}
           </span>
           <Figures macros={nutrition.perServing} size="sm" className="min-w-0 flex-1" />
         </div>
@@ -535,6 +539,7 @@ function IngredientPicker({
   onChange: (id: string) => void
   className?: string
 }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const selected = library.find((i) => i.id === value)
 
@@ -552,7 +557,7 @@ function IngredientPicker({
         }
       >
         <span className={selected ? 'truncate' : 'truncate text-muted-foreground'}>
-          {selected?.name ?? 'Pick ingredient'}
+          {selected?.name ?? t.recipes.pickIngredient}
         </span>
         <ChevronsUpDown className="text-muted-foreground" />
       </PopoverTrigger>
@@ -562,9 +567,9 @@ function IngredientPicker({
             keywords?.join(' ').toLowerCase().includes(search.toLowerCase()) ? 1 : 0
           }
         >
-          <CommandInput placeholder="Search ingredients" />
+          <CommandInput placeholder={t.recipes.searchIngredients} />
           <CommandList>
-            <CommandEmpty>No ingredient found.</CommandEmpty>
+            <CommandEmpty>{t.recipes.noIngredientFound}</CommandEmpty>
             <CommandGroup>
               {library.map((i) => (
                 <CommandItem
@@ -595,6 +600,7 @@ function IngredientPicker({
 }
 
 function useImageUpload(onChange: (imageId: string) => void) {
+  const tError = useTError()
   const input = useRef<HTMLInputElement>(null)
   const [pending, startTransition] = useTransition()
 
@@ -604,7 +610,7 @@ function useImageUpload(onChange: (imageId: string) => void) {
     form.set('file', file)
     startTransition(async () => {
       const result = await uploadRecipeImage(form)
-      if (result.error !== undefined) return void toast.error(result.error)
+      if (result.error !== undefined) return void toast.error(tError(result.error))
       onChange(result.id)
     })
   }
@@ -635,6 +641,7 @@ function CoverPicker({
   imageId: string | null
   onChange: (imageId: string | null) => void
 }) {
+  const t = useT()
   const { pending, upload, pick, fileInput } = useImageUpload(onChange)
 
   return (
@@ -651,7 +658,7 @@ function CoverPicker({
           <div className="relative aspect-4/3 overflow-hidden rounded-lg bg-secondary">
             <Image
               src={`/api/images/${imageId}`}
-              alt="Cover photo"
+              alt={t.recipes.coverPhoto}
               fill
               unoptimized
               className="object-cover"
@@ -659,7 +666,7 @@ function CoverPicker({
           </div>
           <div className="-ml-3.5 flex gap-1">
             <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={pick}>
-              {pending ? 'Uploading…' : 'Replace'}
+              {pending ? t.recipes.uploading : t.recipes.replace}
             </Button>
             <Button
               type="button"
@@ -668,7 +675,7 @@ function CoverPicker({
               className="text-destructive hover:text-destructive"
               onClick={() => onChange(null)}
             >
-              Remove
+              {t.recipes.remove}
             </Button>
           </div>
         </>
@@ -680,8 +687,8 @@ function CoverPicker({
           className="flex aspect-4/3 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-input text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
         >
           <ImagePlus className="size-6" />
-          <span>{pending ? 'Uploading…' : 'Add a photo'}</span>
-          <span className="text-[13px]">or drop one here</span>
+          <span>{pending ? t.recipes.uploading : t.recipes.addAPhoto}</span>
+          <span className="text-[13px]">{t.recipes.dropPhoto}</span>
         </button>
       )}
       {fileInput}
@@ -696,6 +703,7 @@ function StepPhoto({
   imageId: string | null
   onChange: (imageId: string | null) => void
 }) {
+  const t = useT()
   const { pending, pick, fileInput } = useImageUpload(onChange)
 
   return (
@@ -714,7 +722,7 @@ function StepPhoto({
           disabled={pending}
           onClick={pick}
         >
-          {pending ? 'Uploading…' : imageId ? 'Replace photo' : 'Add photo'}
+          {pending ? t.recipes.uploading : imageId ? t.recipes.replacePhoto : t.recipes.addPhoto}
         </Button>
         {imageId && (
           <Button
@@ -724,7 +732,7 @@ function StepPhoto({
             className="text-muted-foreground"
             onClick={() => onChange(null)}
           >
-            Remove
+            {t.recipes.remove}
           </Button>
         )}
       </div>

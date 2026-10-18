@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { auth } from '@/lib/auth'
+import { getT } from '@/lib/i18n-server'
 import { toQueryString } from '@/lib/oauth-query'
 import { ConsentButtons } from './consent-buttons'
 
@@ -12,18 +13,19 @@ export default async function ConsentPage({ searchParams }: PageProps<'/oauth/co
     query: { client_id: String(params.client_id) },
     headers: await headers(),
   })
-  const name = client.client_name ?? 'An app'
+  const t = await getT()
+  const name = client.client_name ?? t.auth.anApp
 
   return (
     <Card className="mx-auto max-w-md">
       <CardHeader>
-        <CardTitle>Connect {name}</CardTitle>
-        <CardDescription>{name} wants access to your Recipes account.</CardDescription>
+        <CardTitle>{t.auth.consentTitle(name)}</CardTitle>
+        <CardDescription>{t.auth.consentDescription(name)}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <ul className="list-disc space-y-1 pl-5 text-sm">
-          <li>Read and change your recipes, ingredients, shopping list and pantry</li>
-          <li>Stay connected until you revoke access in Settings</li>
+          <li>{t.auth.consentRead}</li>
+          <li>{t.auth.consentStay}</li>
         </ul>
         <ConsentButtons oauthQuery={toQueryString(params)} />
       </CardContent>

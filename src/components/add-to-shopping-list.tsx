@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useT, useTError } from '@/i18n/client'
 
 export function AddToShoppingListButton({
   recipeId,
@@ -18,6 +19,8 @@ export function AddToShoppingListButton({
   defaultServings: number
 }) {
   const router = useRouter()
+  const t = useT()
+  const tError = useTError()
   const [open, setOpen] = useState(false)
   const [servings, setServings] = useState(String(defaultServings))
   const [error, setError] = useState<string>()
@@ -30,8 +33,8 @@ export function AddToShoppingListButton({
       if (result.error !== undefined) return setError(result.error)
       setError(undefined)
       setOpen(false)
-      toast.success(`Added ${result.added} ${result.added === 1 ? 'item' : 'items'} to the list`, {
-        action: { label: 'View list', onClick: () => router.push('/shopping') },
+      toast.success(t.recipes.addedItems(result.added), {
+        action: { label: t.recipes.viewList, onClick: () => router.push('/shopping') },
       })
     })
   }
@@ -40,12 +43,12 @@ export function AddToShoppingListButton({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger render={<Button variant="outline" />}>
         <ShoppingCart />
-        Add to shopping list
+        {t.recipes.addToShoppingList}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-60">
         <form onSubmit={submit} className="space-y-3">
           <Field>
-            <FieldLabel htmlFor="shopping-servings">Servings</FieldLabel>
+            <FieldLabel htmlFor="shopping-servings">{t.recipes.servings}</FieldLabel>
             <Input
               id="shopping-servings"
               type="number"
@@ -57,9 +60,9 @@ export function AddToShoppingListButton({
               required
             />
           </Field>
-          <FieldError>{error}</FieldError>
+          <FieldError>{error && tError(error)}</FieldError>
           <Button type="submit" disabled={pending} className="w-full">
-            {pending ? 'Adding…' : 'Add ingredients'}
+            {pending ? t.recipes.adding : t.recipes.addIngredients}
           </Button>
         </form>
       </PopoverContent>

@@ -8,16 +8,18 @@ import { revokeOAuthClient } from '@/actions/oauth'
 import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { useLocale, useT, useTError } from '@/i18n/client'
+import { dateFormatter } from '@/i18n/format'
 
 type ApiKeyRow = { id: string; name: string; createdAt: Date; lastUsedAt: Date | null }
 type ConnectionRow = { clientId: string; name: string | null; connectedAt: Date }
 
-const keyDate = new Intl.DateTimeFormat('en', { dateStyle: 'medium' })
-
 export function CopyBlock({ label, text }: { label: string; text: string }) {
+  const t = useT()
+
   async function copy() {
     await navigator.clipboard.writeText(text)
-    toast.success(`${label} copied`)
+    toast.success(t.common.copied(label))
   }
 
   return (
@@ -25,7 +27,7 @@ export function CopyBlock({ label, text }: { label: string; text: string }) {
       <p className="text-sm font-medium">{label}</p>
       <div className="flex items-start gap-2 rounded-md bg-muted p-3">
         <code className="min-w-0 flex-1 font-mono text-xs break-all">{text}</code>
-        <Button variant="ghost" size="icon-sm" aria-label={`Copy ${label}`} onClick={copy}>
+        <Button variant="ghost" size="icon-sm" aria-label={t.common.copy(label)} onClick={copy}>
           <Copy />
         </Button>
       </div>
@@ -40,12 +42,14 @@ export function RevokeButton({
   name: string
   revoke: () => Promise<{ error?: string }>
 }) {
+  const t = useT()
+  const tError = useTError()
   const [pending, startTransition] = useTransition()
 
   function revoke() {
     startTransition(async () => {
       const result = await revokeAction()
-      if (result.error !== undefined) toast.error(result.error)
+      if (result.error !== undefined) toast.error(tError(result.error))
     })
   }
 
@@ -53,7 +57,7 @@ export function RevokeButton({
     <Button
       variant="ghost"
       size="icon-sm"
-      aria-label={`Revoke ${name}`}
+      aria-label={t.common.revoke(name)}
       disabled={pending}
       onClick={revoke}
     >
@@ -71,6 +75,9 @@ export function ConnectClaudeCard({
   connections: ConnectionRow[]
   endpoint: string
 }) {
+  const t = useT()
+  const tError = useTError()
+  const keyDate = dateFormatter(useLocale(), { dateStyle: 'medium' })
   const [name, setName] = useState('')
   const [error, setError] = useState<string>()
   const [created, setCreated] = useState<{ name: string; key: string }>()
@@ -81,7 +88,7 @@ export function ConnectClaudeCard({
     startTransition(async () => {
       const result = await createApiKey({ name })
       if (result.error !== undefined) {
-        setError(result.error)
+        setError(tError(result.error))
         return
       }
       setError(undefined)
@@ -93,43 +100,43 @@ export function ConnectClaudeCard({
   return (
     <section className="max-w-2xl space-y-5">
       <div className="space-y-1">
-        <h2 className="text-2xl">Connect Claude</h2>
-        <p className="text-sm text-muted-foreground">
-          Let Claude read and change your recipes, ingredients, shopping list and pantry over MCP.
-        </p>
+        <h2 className="text-2xl">{t.settings.connectClaude}</h2>
+        <p className="text-sm text-muted-foreground">{t.settings.connectDescription}</p>
       </div>
       <div className="space-y-6">
         <section className="space-y-2">
-          <h3 className="text-lg">Claude.ai and Claude Desktop</h3>
-          <p className="text-sm text-muted-foreground">
-            Settings → Connectors → Add custom connector, paste this URL, then sign in and approve.
-          </p>
-          <CopyBlock label="Connector URL" text={endpoint} />
+          <h3 className="text-lg">{t.settings.claudeApps}</h3>
+          <p className="text-sm text-muted-foreground">{t.settings.connectorSteps}</p>
+          <CopyBlock label={t.settings.connectorUrl} text={endpoint} />
         </section>
 
         <section className="space-y-2">
           <h3 className="text-lg">Claude Code</h3>
-          <CopyBlock label="Command" text={`claude mcp add --transport http recipes ${endpoint}`} />
+          <CopyBlock
+            label={t.settings.command}
+            text={`claude mcp add --transport http recipes ${endpoint}`}
+          />
           <p className="text-sm text-muted-foreground">
-            Then run <code className="font-mono">/mcp</code> in Claude Code to sign in and approve.
+            {t.settings.claudeCodeThen} <code className="font-mono">/mcp</code>{' '}
+            {t.settings.claudeCodeSignIn}
           </p>
         </section>
 
         {connections.length > 0 && (
           <section className="space-y-2">
-            <h3 className="text-lg">Connected apps</h3>
+            <h3 className="text-lg">{t.settings.connectedApps}</h3>
             <ul className="divide-y">
               {connections.map((c) => (
                 <li key={c.clientId} className="flex items-center gap-2 py-2">
                   <Plug className="size-4 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium">{c.name ?? 'Unnamed app'}</p>
+                    <p className="font-medium">{c.name ?? t.settings.unnamedApp}</p>
                     <p className="text-sm text-muted-foreground">
-                      Connected {keyDate.format(c.connectedAt)}
+                      {t.settings.connected(keyDate.format(c.connectedAt))}
                     </p>
                   </div>
                   <RevokeButton
-                    name={c.name ?? 'Unnamed app'}
+                    name={c.name ?? t.settings.unnamedApp}
                     revoke={() => revokeOAuthClient(c.clientId)}
                   />
                 </li>
@@ -140,10 +147,8 @@ export function ConnectClaudeCard({
 
         <section className="space-y-4">
           <div className="space-y-1">
-            <h3 className="text-lg">For scripts</h3>
-            <p className="text-sm text-muted-foreground">
-              API keys work with any MCP client that can send a bearer header.
-            </p>
+            <h3 className="text-lg">{t.settings.forScripts}</h3>
+            <p className="text-sm text-muted-foreground">{t.settings.apiKeysDescription}</p>
           </div>
           {keys.length > 0 && (
             <ul className="divide-y">
@@ -153,8 +158,8 @@ export function ConnectClaudeCard({
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">{k.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      Created {keyDate.format(k.createdAt)}
-                      {k.lastUsedAt && `, last used ${keyDate.format(k.lastUsedAt)}`}
+                      {t.settings.keyCreated(keyDate.format(k.createdAt))}
+                      {k.lastUsedAt && t.settings.keyLastUsed(keyDate.format(k.lastUsedAt))}
                     </p>
                   </div>
                   <RevokeButton name={k.name} revoke={() => revokeApiKey(k.id)} />
@@ -166,16 +171,16 @@ export function ConnectClaudeCard({
           <form onSubmit={submit}>
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="api-key-name">Key name</FieldLabel>
+                <FieldLabel htmlFor="api-key-name">{t.settings.keyName}</FieldLabel>
                 <div className="flex gap-2">
                   <Input
                     id="api-key-name"
-                    placeholder="Nightly meal-plan script"
+                    placeholder={t.settings.keyNamePlaceholder}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
                   <Button type="submit" disabled={pending || !name.trim()}>
-                    {pending ? 'Creating…' : 'Create key'}
+                    {pending ? t.common.creating : t.settings.createKey}
                   </Button>
                 </div>
                 {error && <FieldError>{error}</FieldError>}
@@ -186,11 +191,11 @@ export function ConnectClaudeCard({
           {created && (
             <div className="space-y-4 rounded-lg border p-4">
               <p className="text-sm">
-                Key <span className="font-medium">{created.name}</span> created. Copy it now, it
-                won’t be shown again.
+                {t.settings.newKeyBefore} <span className="font-medium">{created.name}</span>{' '}
+                {t.settings.newKeyAfter}
               </p>
-              <CopyBlock label="API key" text={created.key} />
-              <CopyBlock label="Header" text={`Authorization: Bearer ${created.key}`} />
+              <CopyBlock label={t.settings.apiKey} text={created.key} />
+              <CopyBlock label={t.settings.header} text={`Authorization: Bearer ${created.key}`} />
             </div>
           )}
         </section>

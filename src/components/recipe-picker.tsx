@@ -12,6 +12,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useT } from '@/i18n/client'
 import { formatKcal } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
 
@@ -70,6 +71,7 @@ export function RecipePicker({
   className?: string
   children: React.ReactNode
 }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
 
   return (
@@ -85,9 +87,9 @@ export function RecipePicker({
             keywords?.join(' ').toLowerCase().includes(search.toLowerCase()) ? 1 : 0
           }
         >
-          <CommandInput placeholder="Search recipes" />
+          <CommandInput placeholder={t.recipes.search} />
           <CommandList>
-            <CommandEmpty>No recipe found.</CommandEmpty>
+            <CommandEmpty>{t.recipes.noRecipeFound}</CommandEmpty>
             <CommandGroup>
               {recipes.map((r) => (
                 <CommandItem
@@ -104,7 +106,7 @@ export function RecipePicker({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{r.title}</span>
                     <span className="block text-[13px] text-muted-foreground tabular-nums">
-                      {formatKcal(r.kcalPerServing)} kcal per serving
+                      {t.recipes.kcalPerServing(formatKcal(r.kcalPerServing))}
                     </span>
                   </span>
                 </CommandItem>

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getActiveGroup } from '@/lib/active-group'
+import { getT } from '@/lib/i18n-server'
 import { listGroups } from '@/lib/groups'
 import { requireUser } from '@/lib/session'
 import { NewGroupForm } from './new-group-form'
@@ -7,17 +8,15 @@ import { SwitchButton } from './switch-button'
 
 export default async function GroupsPage() {
   const user = await requireUser()
+  const t = await getT()
   const active = await getActiveGroup(user.id)
   const groups = listGroups(user.id)
 
   return (
     <div className="max-w-2xl space-y-10 md:space-y-14">
       <div className="space-y-2">
-        <h1 className="text-[32px] leading-tight tracking-[-0.01em]">Groups</h1>
-        <p className="text-muted-foreground">
-          Each group has its own shopping list, pantry and meal plan. Recipes you share into a group
-          are visible to its members.
-        </p>
+        <h1 className="text-[32px] leading-tight tracking-[-0.01em]">{t.groups.title}</h1>
+        <p className="text-muted-foreground">{t.groups.intro}</p>
       </div>
 
       <ul className="divide-y border-y">
@@ -33,13 +32,13 @@ export default async function GroupsPage() {
                 </Link>
                 {g.id === active.id && (
                   <span className="rounded-full bg-secondary px-2.5 py-1 text-[13px] leading-none text-secondary-foreground">
-                    Active
+                    {t.groups.active}
                   </span>
                 )}
               </p>
               <p className="text-sm text-muted-foreground">
-                {g.role === 'admin' ? 'Admin' : 'Member'}, {g.memberCount}{' '}
-                {g.memberCount === 1 ? 'member' : 'members'}
+                {g.role === 'admin' ? t.groups.admin : t.groups.member},{' '}
+                {t.groups.memberCount(g.memberCount)}
               </p>
             </div>
             {g.id !== active.id && <SwitchButton groupId={g.id} name={g.name} />}

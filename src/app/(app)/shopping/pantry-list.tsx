@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { removePantryItem, setPantryItem } from '@/actions/shopping'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useT, useTError } from '@/i18n/client'
 import type { IngredientWithUnits } from '@/lib/ingredients'
 import { IngredientPicker } from './ingredient-picker'
 
@@ -28,16 +29,15 @@ export function PantryList({
   library: IngredientWithUnits[]
 }) {
   const stocked = new Set(items.map((i) => i.ingredientId))
+  const t = useT()
 
   return (
     <div className="space-y-8">
       <AddPantryItem library={library.filter((i) => !stocked.has(i.id))} />
       {items.length === 0 ? (
         <div className="space-y-2 py-6">
-          <p className="font-heading text-2xl font-medium">Your pantry is empty.</p>
-          <p className="text-muted-foreground">
-            Add what you have above, or move bought items here from the list.
-          </p>
+          <p className="font-heading text-2xl font-medium">{t.shopping.pantryEmpty}</p>
+          <p className="text-muted-foreground">{t.shopping.pantryEmptyHint}</p>
         </div>
       ) : (
         <ul className="divide-y">
@@ -51,6 +51,8 @@ export function PantryList({
 }
 
 function PantryRow({ item }: { item: PantryEntry }) {
+  const t = useT()
+  const tError = useTError()
   const [pending, startTransition] = useTransition()
 
   function save(value: string) {
@@ -58,7 +60,7 @@ function PantryRow({ item }: { item: PantryEntry }) {
     if (grams === item.grams) return
     startTransition(async () => {
       const result = await setPantryItem({ ingredientId: item.ingredientId, grams })
-      if (result.error !== undefined) toast.error(result.error)
+      if (result.error !== undefined) toast.error(tError(result.error))
     })
   }
 
@@ -70,12 +72,12 @@ function PantryRow({ item }: { item: PantryEntry }) {
       </div>
       <div className="flex items-center gap-1.5">
         <Input
-          aria-label={`Amount of ${item.name} in grams`}
+          aria-label={t.shopping.pantryAmount(item.name)}
           type="number"
           inputMode="decimal"
           min={0}
           step="any"
-          placeholder="some"
+          placeholder={t.shopping.somePlaceholder}
           defaultValue={item.grams ?? ''}
           disabled={pending}
           onBlur={(e) => save(e.target.value)}
@@ -88,7 +90,7 @@ function PantryRow({ item }: { item: PantryEntry }) {
         variant="ghost"
         size="icon"
         className="text-muted-foreground"
-        aria-label={`Remove ${item.name}`}
+        aria-label={t.shopping.remove(item.name)}
         disabled={pending}
         onClick={() =>
           startTransition(async () => {
@@ -105,14 +107,16 @@ function PantryRow({ item }: { item: PantryEntry }) {
 function AddPantryItem({ library }: { library: IngredientWithUnits[] }) {
   const [picked, setPicked] = useState<IngredientWithUnits | null>(null)
   const [grams, setGrams] = useState('')
+  const t = useT()
+  const tError = useTError()
   const [pending, startTransition] = useTransition()
 
   function submit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!picked) return void toast.error('Pick an ingredient')
+    if (!picked) return void toast.error(t.shopping.pickIngredient)
     startTransition(async () => {
       const result = await setPantryItem({ ingredientId: picked.id, grams: parseGrams(grams) })
-      if (result.error !== undefined) return void toast.error(result.error)
+      if (result.error !== undefined) return void toast.error(tError(result.error))
       setPicked(null)
       setGrams('')
     })
@@ -127,12 +131,12 @@ function AddPantryItem({ library }: { library: IngredientWithUnits[] }) {
         className="min-w-0 justify-between rounded-full border-input px-4 text-base font-normal sm:h-10 sm:text-sm"
       >
         <span className={picked ? 'truncate' : 'truncate text-muted-foreground'}>
-          {picked?.name ?? 'Add to pantry'}
+          {picked?.name ?? t.shopping.addToPantry}
         </span>
         <ChevronsUpDown className="text-muted-foreground" />
       </IngredientPicker>
       <Input
-        aria-label="Grams"
+        aria-label={t.shopping.grams}
         type="number"
         inputMode="decimal"
         min={0}
@@ -142,7 +146,7 @@ function AddPantryItem({ library }: { library: IngredientWithUnits[] }) {
         onChange={(e) => setGrams(e.target.value)}
       />
       <Button type="submit" disabled={pending}>
-        Add
+        {t.shopping.add}
       </Button>
     </form>
   )

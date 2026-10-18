@@ -11,6 +11,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useT } from '@/i18n/client'
 import type { IngredientWithUnits } from '@/lib/ingredients'
 
 export function IngredientPicker({
@@ -29,6 +30,7 @@ export function IngredientPicker({
   children: React.ReactNode
 }) {
   const [open, setOpen] = useState(false)
+  const t = useT()
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -43,9 +45,9 @@ export function IngredientPicker({
             keywords?.join(' ').toLowerCase().includes(search.toLowerCase()) ? 1 : 0
           }
         >
-          <CommandInput placeholder="Search ingredients" />
+          <CommandInput placeholder={t.shopping.searchIngredients} />
           <CommandList>
-            <CommandEmpty>No ingredient found.</CommandEmpty>
+            <CommandEmpty>{t.shopping.noIngredientFound}</CommandEmpty>
             <CommandGroup>
               {library.map((i) => (
                 <CommandItem

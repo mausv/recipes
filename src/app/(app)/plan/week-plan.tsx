@@ -4,11 +4,11 @@ import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import type { PickerRecipe } from '@/components/recipe-picker'
 import { Button } from '@/components/ui/button'
+import { useT } from '@/i18n/client'
 import type { PlanEntry } from '@/lib/meal-plan'
 import { SLOTS, type Slot } from '@/lib/validation/meal-plan'
 import { AddEntryDialog } from './add-entry-dialog'
 import { EntryChip } from './entry-chip'
-import { SLOT_LABELS } from './slots'
 
 export type PlanDay = {
   date: string
@@ -19,10 +19,11 @@ export type PlanDay = {
 }
 
 function TodayDot() {
+  const t = useT()
   return (
     <>
       <span aria-hidden className="size-2 shrink-0 rounded-full bg-primary" />
-      <span className="sr-only">(today)</span>
+      <span className="sr-only">{t.plan.todayMarker}</span>
     </>
   )
 }
@@ -36,12 +37,13 @@ function AddButton({
   slot: Slot
   onAddAction: () => void
 }) {
+  const t = useT()
   return (
     <Button
       variant="ghost"
       size="icon-sm"
       className="shrink-0 text-muted-foreground"
-      aria-label={`Add to ${day.label}, ${SLOT_LABELS[slot].toLowerCase()}`}
+      aria-label={t.plan.addTo(day.label, t.plan.slots[slot])}
       onClick={onAddAction}
     >
       <Plus />
@@ -52,14 +54,11 @@ function AddButton({
 export function WeekPlan({ days, recipes }: { days: PlanDay[]; recipes: PickerRecipe[] }) {
   const [adding, setAdding] = useState<{ date: string; slot: Slot } | null>(null)
   const empty = days.every((d) => d.slots.every((s) => s.entries.length === 0))
+  const t = useT()
 
   return (
     <>
-      {empty && (
-        <p className="text-muted-foreground">
-          Nothing planned this week. Add a recipe to a day to get started.
-        </p>
-      )}
+      {empty && <p className="text-muted-foreground">{t.plan.emptyWeek}</p>}
 
       <div className="space-y-8 lg:hidden">
         {days.map((day) => (
@@ -72,7 +71,7 @@ export function WeekPlan({ days, recipes }: { days: PlanDay[]; recipes: PickerRe
               {day.slots.map(({ slot, entries }) => (
                 <li key={slot} className="flex items-start gap-2 py-1">
                   <span className="w-20 shrink-0 pt-2.5 text-sm text-muted-foreground">
-                    {SLOT_LABELS[slot]}
+                    {t.plan.slots[slot]}
                   </span>
                   <div className="min-w-0 flex-1">
                     {entries.map((entry) => (
@@ -103,7 +102,7 @@ export function WeekPlan({ days, recipes }: { days: PlanDay[]; recipes: PickerRe
         </div>
         {SLOTS.map((slot, i) => (
           <section key={slot} className="border-b py-3">
-            <h3 className="text-[15px] text-muted-foreground italic">{SLOT_LABELS[slot]}</h3>
+            <h3 className="text-[15px] text-muted-foreground italic">{t.plan.slots[slot]}</h3>
             <div className="mt-2 grid grid-cols-7 gap-x-4">
               {days.map((day) => (
                 <div key={day.date} className="min-w-0 space-y-3">

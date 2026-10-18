@@ -1,0 +1,27 @@
+import type { auth as en } from '../en/auth'
+
+export const auth: typeof en = {
+  signIn: 'Iniciar sesión',
+  signingIn: 'Iniciando sesión…',
+  signInFailed: 'No se pudo iniciar sesión',
+  welcomeBack: 'Qué gusto verte de nuevo.',
+  noAccount: '¿No tienes cuenta?',
+  signUp: 'Crear cuenta',
+  signUpFailed: 'No se pudo crear la cuenta',
+  createAccount: 'Crear cuenta',
+  creatingAccount: 'Creando cuenta…',
+  inviteRequired: 'Necesitas un código de invitación para unirte.',
+  haveAccount: '¿Ya tienes cuenta?',
+  name: 'Nombre',
+  email: 'Correo electrónico',
+  password: 'Contraseña',
+  inviteCode: 'Código de invitación',
+  anApp: 'Una app',
+  consentTitle: (app) => `Conectar ${app}`,
+  consentDescription: (app) => `${app} quiere acceder a tu cuenta de Recetas.`,
+  consentRead: 'Leer y modificar tus recetas, ingredientes, lista de compras y despensa',
+  consentStay: 'Seguir conectada hasta que revoques el acceso en Ajustes',
+  approve: 'Aprobar',
+  deny: 'Rechazar',
+  requestFailed: 'No se pudo completar la solicitud',
+}

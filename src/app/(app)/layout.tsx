@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { UserMenu } from '@/components/user-menu'
 import { getActiveGroup } from '@/lib/active-group'
 import { listGroups } from '@/lib/groups'
+import { getT } from '@/lib/i18n-server'
 import { requireUser } from '@/lib/session'
 
 export const instant = false
@@ -13,6 +14,7 @@ export const instant = false
 export default async function AppLayout({ children }: LayoutProps<'/'>) {
   const user = await requireUser()
   const activeGroup = await getActiveGroup(user.id)
+  const t = await getT()
 
   return (
     <>
@@ -24,7 +26,7 @@ export default async function AppLayout({ children }: LayoutProps<'/'>) {
               className="flex items-center gap-2 font-heading text-[22px] leading-none font-medium"
             >
               <AppIcon className="size-7" />
-              Recipes
+              {t.common.appName}
             </Link>
             <GroupSwitcher groups={listGroups(user.id)} activeId={activeGroup.id} />
           </div>

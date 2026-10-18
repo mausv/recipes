@@ -1,20 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useT } from '@/i18n/client'
 import { formatGrams, formatKcal, type Macros } from '@/lib/nutrition'
 import { cn } from '@/lib/utils'
 
-const figures = [
-  { key: 'kcal', label: 'kcal' },
-  { key: 'protein', label: 'protein' },
-  { key: 'carbs', label: 'carbs' },
-  { key: 'fat', label: 'fat' },
-] as const
+const figures = ['kcal', 'protein', 'carbs', 'fat'] as const
 
-const bases = [
-  { key: 'perServing', label: 'Per serving' },
-  { key: 'per100g', label: 'Per 100 g' },
-] as const
+const bases = ['perServing', 'per100g'] as const
 
 export function Figures({
   macros,
@@ -25,11 +18,14 @@ export function Figures({
   size: 'lg' | 'sm'
   className?: string
 }) {
+  const t = useT()
   return (
     <dl className={cn('grid grid-cols-4', size === 'lg' ? 'gap-x-3' : 'gap-x-2', className)}>
-      {figures.map(({ key, label }) => (
+      {figures.map((key) => (
         <div key={key} className="flex min-w-0 flex-col-reverse gap-1">
-          <dt className="text-[13px] leading-none text-muted-foreground">{label}</dt>
+          <dt className="text-[13px] leading-none text-muted-foreground">
+            {t.recipes.figures[key]}
+          </dt>
           <dd
             className={cn(
               'font-heading leading-none font-medium whitespace-nowrap tabular-nums',
@@ -69,17 +65,18 @@ export function MacroFigures({
   per100g: Macros
   figuresClassName?: string
 }) {
+  const t = useT()
   const [basis, setBasis] = useState<'perServing' | 'per100g'>('perServing')
   const macros = basis === 'perServing' ? perServing : per100g
 
   return (
-    <section aria-label="Nutrition" className="space-y-5">
+    <section aria-label={t.recipes.nutrition} className="space-y-5">
       <div
         role="group"
-        aria-label="Nutrition basis"
+        aria-label={t.recipes.nutritionBasis}
         className="inline-flex h-11 rounded-full border p-0.5 sm:h-9"
       >
-        {bases.map(({ key, label }) => (
+        {bases.map((key) => (
           <button
             key={key}
             type="button"
@@ -90,13 +87,13 @@ export function MacroFigures({
               basis === key && 'bg-secondary text-foreground'
             )}
           >
-            {label}
+            {t.recipes[key]}
           </button>
         ))}
       </div>
       <Figures macros={macros} size="lg" className={figuresClassName} />
       <p className="text-[13px] text-muted-foreground tabular-nums">
-        {formatGrams(macros.fiber)} g fiber
+        {t.recipes.fiber(formatGrams(macros.fiber))}
       </p>
     </section>
   )

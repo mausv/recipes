@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useT, useTError } from '@/i18n/client'
 
 export function ShareButton({
   recipeId,
@@ -16,6 +17,8 @@ export function ShareButton({
   recipeId: string
   groups: { id: string; name: string; shared: boolean }[]
 }) {
+  const t = useT()
+  const tError = useTError()
   const [shared, setShared] = useState(
     () => new Set(groups.filter((g) => g.shared).map((g) => g.id))
   )
@@ -26,7 +29,7 @@ export function ShareButton({
       const action = checked ? shareRecipe : unshareRecipe
       const result = await action(recipeId, groupId)
       if (result.error !== undefined) {
-        toast.error(result.error)
+        toast.error(tError(result.error))
         return
       }
       setShared((current) => {
@@ -42,12 +45,10 @@ export function ShareButton({
     <Popover>
       <PopoverTrigger render={<Button variant="ghost" />}>
         <Share2 />
-        Share
+        {t.recipes.share}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 space-y-3">
-        <p className="text-sm text-muted-foreground">
-          Members of these groups can see and cook from this recipe.
-        </p>
+        <p className="text-sm text-muted-foreground">{t.recipes.shareHint}</p>
         {groups.map((g) => (
           <Field key={g.id} orientation="horizontal">
             <Checkbox

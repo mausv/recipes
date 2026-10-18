@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useT, useTError } from '@/i18n/client'
 
 export function GroupSwitcher({
   groups,
@@ -27,13 +28,15 @@ export function GroupSwitcher({
   activeId: string
 }) {
   const router = useRouter()
+  const t = useT()
+  const tError = useTError()
   const [pending, startTransition] = useTransition()
   const active = groups.find((g) => g.id === activeId)
 
   function select(groupId: string) {
     startTransition(async () => {
       const result = await setActiveGroup(groupId)
-      if (result.error !== undefined) toast.error(result.error)
+      if (result.error !== undefined) toast.error(tError(result.error))
       else router.refresh()
     })
   }
@@ -55,7 +58,7 @@ export function GroupSwitcher({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-48">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Groups</DropdownMenuLabel>
+          <DropdownMenuLabel>{t.groups.title}</DropdownMenuLabel>
           <DropdownMenuRadioGroup value={activeId} onValueChange={select}>
             {groups.map((g) => (
               <DropdownMenuRadioItem key={g.id} value={g.id}>
@@ -67,7 +70,7 @@ export function GroupSwitcher({
         <DropdownMenuSeparator />
         <DropdownMenuItem render={<Link href="/groups" />}>
           <Settings2 />
-          Manage groups
+          {t.groups.manage}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

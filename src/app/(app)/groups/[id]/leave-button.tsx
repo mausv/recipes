@@ -6,19 +6,22 @@ import { useTransition } from 'react'
 import { toast } from 'sonner'
 import { leaveGroup } from '@/actions/groups'
 import { Button } from '@/components/ui/button'
+import { useT, useTError } from '@/i18n/client'
 
 export function LeaveButton({ groupId, name }: { groupId: string; name: string }) {
   const router = useRouter()
+  const t = useT()
+  const tError = useTError()
   const [pending, startTransition] = useTransition()
 
   function leave() {
     startTransition(async () => {
       const result = await leaveGroup(groupId)
       if (result.error !== undefined) {
-        toast.error(result.error)
+        toast.error(tError(result.error))
         return
       }
-      toast.success(`Left ${name}`)
+      toast.success(t.groups.left(name))
       router.push('/groups')
     })
   }
@@ -31,7 +34,7 @@ export function LeaveButton({ groupId, name }: { groupId: string; name: string }
       onClick={leave}
     >
       <LogOut />
-      {pending ? 'Leaving…' : 'Leave group'}
+      {pending ? t.groups.leaving : t.groups.leave}
     </Button>
   )
 }

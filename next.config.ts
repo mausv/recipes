@@ -3,6 +3,9 @@ import type { NextConfig } from 'next'
 const nextConfig: NextConfig = {
   output: 'standalone',
   serverExternalPackages: ['better-sqlite3', 'sharp'],
+  outputFileTracingIncludes: {
+    '/api/recipes/\\[id\\]/pdf': ['./src/lib/pdf/fonts/*'],
+  },
   cacheComponents: true,
   partialPrefetching: true,
   experimental: {

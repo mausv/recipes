@@ -1,5 +1,6 @@
 import { TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getActiveGroup } from '@/lib/active-group'
+import { getT } from '@/lib/i18n-server'
 import { listIngredients } from '@/lib/ingredients'
 import { requireUser } from '@/lib/session'
 import { getShoppingList } from '@/lib/shopping-list'
@@ -18,17 +19,18 @@ export default async function ShoppingPage({ searchParams }: PageProps<'/shoppin
   const { id: groupId } = await getActiveGroup(user.id)
   const { needs, freeText, pantry } = getShoppingList(groupId)
   const library = listIngredients()
+  const t = await getT()
 
   return (
     <div className="max-w-2xl">
-      <h1 className="sr-only">Shopping</h1>
+      <h1 className="sr-only">{t.shopping.title}</h1>
       <ShoppingTabs defaultTab={tab === 'pantry' ? 'pantry' : 'list'}>
         <TabsList variant="line" className="gap-8 p-0 group-data-horizontal/tabs:h-auto">
           <TabsTrigger value="list" className={tabClass}>
-            To buy
+            {t.shopping.toBuy}
           </TabsTrigger>
           <TabsTrigger value="pantry" className={tabClass}>
-            Pantry
+            {t.shopping.pantry}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="list" className="space-y-8 pt-6 text-base">

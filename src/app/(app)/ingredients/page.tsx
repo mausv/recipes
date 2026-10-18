@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { getT } from '@/lib/i18n-server'
 import { groupByCategory, listIngredients } from '@/lib/ingredients'
 import { formatGrams, formatKcal } from '@/lib/nutrition'
 import { SourceBadge } from './source-badge'
@@ -22,14 +23,15 @@ export default async function IngredientsPage({ searchParams }: PageProps<'/ingr
   const ingredients = listIngredients(query)
   const groups = groupByCategory(ingredients)
   const showHeadings = groups.some(([category]) => category !== null)
+  const t = await getT()
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-[32px] leading-tight tracking-[-0.01em]">Ingredients</h1>
+        <h1 className="text-[32px] leading-tight tracking-[-0.01em]">{t.ingredients.title}</h1>
         <Link href="/ingredients/new" className={buttonVariants()}>
           <Plus />
-          New ingredient
+          {t.ingredients.newIngredient}
         </Link>
       </div>
 
@@ -39,8 +41,8 @@ export default async function IngredientsPage({ searchParams }: PageProps<'/ingr
           name="q"
           type="search"
           defaultValue={query}
-          placeholder="Search by name or brand"
-          aria-label="Search ingredients"
+          placeholder={t.ingredients.searchPlaceholder}
+          aria-label={t.ingredients.searchLabel}
           className="rounded-full pl-10"
         />
       </Form>
@@ -48,16 +50,16 @@ export default async function IngredientsPage({ searchParams }: PageProps<'/ingr
       {ingredients.length === 0 ? (
         <div className="space-y-2 py-12">
           <p className="font-heading text-2xl font-medium">
-            {query ? `No ingredients match “${query}”.` : 'No ingredients yet.'}
+            {query ? t.ingredients.noMatch(query) : t.ingredients.empty}
           </p>
           <p className="text-muted-foreground">
             {query ? (
               <Link href="/ingredients" className="text-primary underline underline-offset-4">
-                Show all ingredients
+                {t.ingredients.showAll}
               </Link>
             ) : (
               <Link href="/ingredients/new" className="text-primary underline underline-offset-4">
-                Add the first one
+                {t.ingredients.addFirst}
               </Link>
             )}
             .
@@ -69,23 +71,27 @@ export default async function IngredientsPage({ searchParams }: PageProps<'/ingr
             <Table className="text-[15px]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="pl-0 font-normal text-muted-foreground">Name</TableHead>
+                  <TableHead className="pl-0 font-normal text-muted-foreground">
+                    {t.ingredients.name}
+                  </TableHead>
                   <TableHead className="text-right font-normal text-muted-foreground">
                     kcal
                   </TableHead>
                   <TableHead className="text-right font-normal text-muted-foreground">
-                    Protein
+                    {t.ingredients.protein}
                   </TableHead>
                   <TableHead className="text-right font-normal text-muted-foreground">
-                    Carbs
+                    {t.ingredients.carbs}
                   </TableHead>
                   <TableHead className="text-right font-normal text-muted-foreground">
-                    Fat
+                    {t.ingredients.fat}
                   </TableHead>
                   <TableHead className="text-right font-normal text-muted-foreground">
-                    Fiber
+                    {t.ingredients.fiber}
                   </TableHead>
-                  <TableHead className="font-normal text-muted-foreground">Source</TableHead>
+                  <TableHead className="font-normal text-muted-foreground">
+                    {t.ingredients.source}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               {groups.map(([category, items]) => (
@@ -97,7 +103,7 @@ export default async function IngredientsPage({ searchParams }: PageProps<'/ingr
                         scope="colgroup"
                         className="h-auto pt-6 pb-1 pl-0 font-heading text-[19px] font-normal italic"
                       >
-                        {category ?? 'Other'}
+                        {category ?? t.ingredients.other}
                       </TableHead>
                     </TableRow>
                   )}
@@ -137,7 +143,7 @@ export default async function IngredientsPage({ searchParams }: PageProps<'/ingr
                 </TableBody>
               ))}
             </Table>
-            <p className="mt-3 text-[13px] text-muted-foreground">Values per 100 g.</p>
+            <p className="mt-3 text-[13px] text-muted-foreground">{t.ingredients.valuesPer100g}</p>
           </div>
 
           <div className="md:hidden">
@@ -145,7 +151,7 @@ export default async function IngredientsPage({ searchParams }: PageProps<'/ingr
               <section key={category ?? ''}>
                 {showHeadings && (
                   <h2 className="pt-4 pb-1 text-[19px] font-normal italic">
-                    {category ?? 'Other'}
+                    {category ?? t.ingredients.other}
                   </h2>
                 )}
                 <ul className="divide-y">
@@ -161,7 +167,7 @@ export default async function IngredientsPage({ searchParams }: PageProps<'/ingr
                             <p className="text-[13px] text-muted-foreground">{i.brand}</p>
                           )}
                           <p className="mt-1 text-[13px] text-muted-foreground">
-                            <MacroSummary macros={i} /> per 100 g
+                            <MacroSummary macros={i} /> {t.ingredients.per100g}
                           </p>
                         </div>
                         <SourceBadge source={i.source} />

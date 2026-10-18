@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import { Figtree, Fraunces } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
+import { I18nProvider } from '@/i18n/client'
+import { getLocale, getT } from '@/lib/i18n-server'
 import './globals.css'
 
 const figtree = Figtree({ variable: '--font-figtree', subsets: ['latin'] })
@@ -11,10 +13,13 @@ const fraunces = Fraunces({
   axes: ['SOFT', 'WONK', 'opsz'],
 })
 
-export const metadata: Metadata = {
-  title: 'Recipes',
-  description: 'Household recipes, ingredients and shopping list',
-  appleWebApp: { title: 'Recipes', capable: true },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT()
+  return {
+    title: t.common.appName,
+    description: t.common.appDescription,
+    appleWebApp: { title: t.common.appName, capable: true },
+  }
 }
 
 export const viewport: Viewport = {
@@ -27,10 +32,13 @@ export const viewport: Viewport = {
   ],
 }
 
-export default function RootLayout({ children }: LayoutProps<'/'>) {
+export const instant = false
+
+export default async function RootLayout({ children }: LayoutProps<'/'>) {
+  const locale = await getLocale()
   return (
     <html
-      lang="en"
+      lang={locale}
       className={`${figtree.variable} ${fraunces.variable} h-full antialiased`}
       suppressHydrationWarning
     >
@@ -41,7 +49,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <I18nProvider locale={locale}>{children}</I18nProvider>
         </ThemeProvider>
       </body>
     </html>

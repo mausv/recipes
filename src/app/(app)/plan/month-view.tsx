@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getT } from '@/lib/i18n-server'
 import { cn } from '@/lib/utils'
 
 export type MonthDay = {
@@ -15,7 +16,8 @@ function weekHref(date: string) {
   return `/plan?week=${date}`
 }
 
-export function MonthView({ days, weekdays }: { days: MonthDay[]; weekdays: string[] }) {
+export async function MonthView({ days, weekdays }: { days: MonthDay[]; weekdays: string[] }) {
+  const t = await getT()
   return (
     <>
       <ul className="divide-y border-y lg:hidden">
@@ -32,12 +34,12 @@ export function MonthView({ days, weekdays }: { days: MonthDay[]; weekdays: stri
                   {day.today && (
                     <>
                       <span aria-hidden className="size-2 rounded-full bg-primary" />
-                      <span className="sr-only">(today)</span>
+                      <span className="sr-only">{t.plan.todayMarker}</span>
                     </>
                   )}
                 </span>
                 <span className="text-sm text-muted-foreground tabular-nums">
-                  {day.count > 0 && `${day.count} planned`}
+                  {day.count > 0 && t.plan.planned(day.count)}
                 </span>
               </Link>
             </li>
@@ -70,7 +72,7 @@ export function MonthView({ days, weekdays }: { days: MonthDay[]; weekdays: stri
                 >
                   <span className="sr-only">
                     {day.label}
-                    {day.today && ' (today)'}
+                    {day.today && ` ${t.plan.todayMarker}`}
                   </span>
                   <span aria-hidden>{day.dayNumber}</span>
                 </span>
@@ -81,7 +83,7 @@ export function MonthView({ days, weekdays }: { days: MonthDay[]; weekdays: stri
                 ))}
                 {day.count > day.titles.length && (
                   <span className="text-[13px] text-muted-foreground">
-                    +{day.count - day.titles.length} more
+                    {t.plan.more(day.count - day.titles.length)}
                   </span>
                 )}
               </Link>

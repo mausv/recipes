@@ -30,30 +30,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useT, useTError } from '@/i18n/client'
 import type { PlanEntry } from '@/lib/meal-plan'
 import { formatQuantity } from '@/lib/units'
 import { cn } from '@/lib/utils'
 import { SLOTS, type Slot } from '@/lib/validation/meal-plan'
-import { SLOT_LABELS } from './slots'
 
 type Mode = 'servings' | 'move' | 'note'
 
-function entryName(entry: PlanEntry) {
+function entryName(entry: PlanEntry, hidden: string) {
   if (entry.kind === 'recipe') return entry.recipe.title
   if (entry.kind === 'note') return entry.note
-  return 'Recipe no longer shared'
+  return hidden
 }
 
 export function EntryChip({ entry, stacked = false }: { entry: PlanEntry; stacked?: boolean }) {
   const [mode, setMode] = useState<Mode | null>(null)
   const [pending, startTransition] = useTransition()
-  const name = entryName(entry)
+  const t = useT()
+  const tError = useTError()
+  const name = entryName(entry, t.plan.noLongerShared)
 
   function remove() {
     startTransition(async () => {
       const result = await removePlanEntry(entry.id)
-      if (result.error !== undefined) toast.error(result.error)
-      else toast.success('Removed from the plan')
+      if (result.error !== undefined) toast.error(tError(result.error))
+      else toast.success(t.plan.removed)
     })
   }
 
@@ -67,7 +69,7 @@ export function EntryChip({ entry, stacked = false }: { entry: PlanEntry; stacke
               variant="ghost"
               size="icon-sm"
               disabled={pending}
-              aria-label={`Options for ${name}`}
+              aria-label={t.plan.options(name)}
               className={cn('text-muted-foreground', stacked && 'absolute top-0 right-0 size-8')}
             />
           }
@@ -78,16 +80,16 @@ export function EntryChip({ entry, stacked = false }: { entry: PlanEntry; stacke
           {entry.kind === 'recipe' && (
             <>
               <DropdownMenuItem onClick={() => setMode('servings')}>
-                Change servings
+                {t.plan.changeServings}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setMode('move')}>Move to…</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setMode('move')}>{t.plan.moveTo}</DropdownMenuItem>
             </>
           )}
           {entry.kind === 'note' && (
-            <DropdownMenuItem onClick={() => setMode('note')}>Edit note</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setMode('note')}>{t.plan.editNote}</DropdownMenuItem>
           )}
           <DropdownMenuItem variant="destructive" onClick={remove}>
-            Remove
+            {t.plan.remove}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -103,6 +105,7 @@ export function EntryChip({ entry, stacked = false }: { entry: PlanEntry; stacke
 }
 
 function ChipBody({ entry, stacked }: { entry: PlanEntry; stacked: boolean }) {
+  const t = useT()
   if (entry.kind === 'note') {
     return (
       <p className={cn('min-w-0 flex-1 text-[15px] italic', stacked && 'pr-8')}>{entry.note}</p>
@@ -111,7 +114,7 @@ function ChipBody({ entry, stacked }: { entry: PlanEntry; stacked: boolean }) {
   if (entry.kind === 'hidden') {
     return (
       <p className={cn('min-w-0 flex-1 text-sm text-muted-foreground italic', stacked && 'pr-8')}>
-        Recipe no longer shared
+        {t.plan.noLongerShared}
       </p>
     )
   }
@@ -136,17 +139,11 @@ function ChipBody({ entry, stacked }: { entry: PlanEntry; stacked: boolean }) {
         </span>
         <span className="block shrink-0 text-[13px] text-muted-foreground tabular-nums">
           × {formatQuantity(servings)}
-          <span className="sr-only"> servings</span>
+          <span className="sr-only"> {t.plan.servings.toLowerCase()}</span>
         </span>
       </span>
     </Link>
   )
-}
-
-const TITLES: Record<Mode, string> = {
-  servings: 'Change servings',
-  move: 'Move to another day',
-  note: 'Edit note',
 }
 
 function EditForm({
@@ -166,6 +163,13 @@ function EditForm({
   const [note, setNote] = useState(entry.kind === 'note' ? entry.note : '')
   const [error, setError] = useState<string>()
   const [pending, startTransition] = useTransition()
+  const t = useT()
+  const tError = useTError()
+  const titles = {
+    servings: t.plan.changeServings,
+    move: t.plan.moveTitle,
+    note: t.plan.editNote,
+  }
 
   function submit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -177,7 +181,7 @@ function EditForm({
               entry.id,
               mode === 'servings' ? { servings: Number(servings) } : { note }
             )
-      if (result.error !== undefined) return setError(result.error)
+      if (result.error !== undefined) return setError(tError(result.error))
       onDoneAction()
     })
   }
@@ -185,11 +189,11 @@ function EditForm({
   return (
     <form onSubmit={submit} className="grid gap-4">
       <DialogHeader>
-        <DialogTitle className="text-xl">{TITLES[mode]}</DialogTitle>
+        <DialogTitle className="text-xl">{titles[mode]}</DialogTitle>
       </DialogHeader>
       {mode === 'servings' && (
         <Field>
-          <FieldLabel htmlFor="entry-servings">Servings</FieldLabel>
+          <FieldLabel htmlFor="entry-servings">{t.plan.servings}</FieldLabel>
           <Input
             id="entry-servings"
             type="number"
@@ -205,7 +209,7 @@ function EditForm({
       {mode === 'move' && (
         <div className="grid grid-cols-2 gap-3">
           <Field>
-            <FieldLabel htmlFor="entry-date">Day</FieldLabel>
+            <FieldLabel htmlFor="entry-date">{t.plan.day}</FieldLabel>
             <Input
               id="entry-date"
               type="date"
@@ -215,14 +219,14 @@ function EditForm({
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="entry-slot">Meal</FieldLabel>
+            <FieldLabel htmlFor="entry-slot">{t.plan.meal}</FieldLabel>
             <SlotSelect id="entry-slot" value={slot} onChangeAction={setSlot} />
           </Field>
         </div>
       )}
       {mode === 'note' && (
         <Field>
-          <FieldLabel htmlFor="entry-note">Note</FieldLabel>
+          <FieldLabel htmlFor="entry-note">{t.plan.note}</FieldLabel>
           <Input
             id="entry-note"
             value={note}
@@ -234,9 +238,11 @@ function EditForm({
       )}
       <FieldError>{error}</FieldError>
       <DialogFooter>
-        <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+        <DialogClose render={<Button type="button" variant="outline" />}>
+          {t.common.cancel}
+        </DialogClose>
         <Button type="submit" disabled={pending}>
-          {pending ? 'Saving…' : 'Save'}
+          {pending ? t.plan.saving : t.common.save}
         </Button>
       </DialogFooter>
     </form>
@@ -252,15 +258,16 @@ export function SlotSelect({
   value: Slot
   onChangeAction: (slot: Slot) => void
 }) {
+  const t = useT()
   return (
-    <Select items={SLOT_LABELS} value={value} onValueChange={(v) => v && onChangeAction(v)}>
+    <Select items={t.plan.slots} value={value} onValueChange={(v) => v && onChangeAction(v)}>
       <SelectTrigger id={id} className="w-full">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
         {SLOTS.map((s) => (
           <SelectItem key={s} value={s}>
-            {SLOT_LABELS[s]}
+            {t.plan.slots[s]}
           </SelectItem>
         ))}
       </SelectContent>
