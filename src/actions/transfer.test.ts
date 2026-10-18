@@ -28,6 +28,7 @@ function exportDoc(recipeLines: ExportDoc['recipes'][number]['ingredients'] = []
         id: 'oats',
         name: 'Oats',
         brand: null,
+        category: null,
         kcal: 380,
         protein: 13,
         carbs: 60,

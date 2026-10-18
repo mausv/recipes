@@ -24,7 +24,7 @@ import type { IngredientInput } from '@/lib/validation/ingredient'
 import { SourceBadge } from './source-badge'
 
 type Fields = Record<
-  'name' | 'brand' | 'kcal' | 'protein' | 'carbs' | 'fat' | 'fiber' | 'density',
+  'name' | 'brand' | 'category' | 'kcal' | 'protein' | 'carbs' | 'fat' | 'fiber' | 'density',
   string
 >
 
@@ -44,11 +44,18 @@ const macroFields = [
   { name: 'fiber', label: 'Fiber (g)', optional: true },
 ] as const
 
-export function IngredientForm({ ingredient }: { ingredient?: IngredientWithUnits }) {
+export function IngredientForm({
+  ingredient,
+  categories,
+}: {
+  ingredient?: IngredientWithUnits
+  categories: string[]
+}) {
   const router = useRouter()
   const [fields, setFields] = useState<Fields>({
     name: ingredient?.name ?? '',
     brand: ingredient?.brand ?? '',
+    category: ingredient?.category ?? '',
     kcal: text(ingredient?.kcal),
     protein: text(ingredient?.protein),
     carbs: text(ingredient?.carbs),
@@ -104,6 +111,7 @@ export function IngredientForm({ ingredient }: { ingredient?: IngredientWithUnit
       ...origin,
       name: fields.name,
       brand: fields.brand,
+      category: fields.category,
       kcal: Number(fields.kcal),
       protein: Number(fields.protein),
       carbs: Number(fields.carbs),
@@ -137,6 +145,18 @@ export function IngredientForm({ ingredient }: { ingredient?: IngredientWithUnit
             <Field>
               <FieldLabel htmlFor="brand">Brand</FieldLabel>
               <Input {...field('brand')} placeholder="Optional" />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="category">Category</FieldLabel>
+              <Input {...field('category')} list="ingredient-categories" placeholder="Optional" />
+              <datalist id="ingredient-categories">
+                {categories.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+              <FieldDescription>
+                Groups it on the ingredients page, like Dairy or Spices.
+              </FieldDescription>
             </Field>
           </div>
 

@@ -19,6 +19,7 @@ export const ingredientUnitSchema = z.object({
 export const ingredientSchema = z.object({
   name: z.string().trim().min(1, 'Name is required'),
   brand: optionalText,
+  category: optionalText,
   kcal: macro('Calories'),
   protein: macro('Protein'),
   carbs: macro('Carbs'),

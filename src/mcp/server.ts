@@ -100,6 +100,9 @@ const recipeInput = recipeSchema.extend({
 
 const ingredientInput = ingredientSchema.extend({
   brand: ingredientSchema.shape.brand.default(null),
+  category: ingredientSchema.shape.category
+    .default(null)
+    .describe('Library section, e.g. Dairy or Spices. Reuse existing categories when they fit.'),
   fiber: ingredientSchema.shape.fiber.default(null),
   density: ingredientSchema.shape.density.default(1),
   source: ingredientSchema.shape.source.default('manual'),

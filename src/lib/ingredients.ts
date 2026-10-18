@@ -1,4 +1,4 @@
-import { asc, eq, sql } from 'drizzle-orm'
+import { asc, eq, isNotNull, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { ingredient, ingredientUnit, recipe, recipeIngredient } from '@/db/schema'
 import { isKnownUnit, toGrams } from './units'
@@ -27,6 +27,25 @@ export function getIngredient(id: string) {
 }
 
 export type IngredientWithUnits = ReturnType<typeof listIngredients>[number]
+
+export function listIngredientCategories() {
+  return db
+    .selectDistinct({ category: ingredient.category })
+    .from(ingredient)
+    .where(isNotNull(ingredient.category))
+    .orderBy(asc(ingredient.category))
+    .all()
+    .map((row) => row.category)
+    .filter((category) => category !== null)
+}
+
+export function groupByCategory<T extends { category: string | null }>(items: T[]) {
+  const groups = new Map<string | null, T[]>()
+  for (const item of items) {
+    groups.set(item.category, [...(groups.get(item.category) ?? []), item])
+  }
+  return [...groups].sort(([a], [b]) => (a === null ? 1 : b === null ? -1 : a.localeCompare(b)))
+}
 
 export function createIngredient(userId: string, { units, ...values }: IngredientData) {
   return db.transaction((tx) => {

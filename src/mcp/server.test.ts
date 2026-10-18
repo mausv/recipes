@@ -149,6 +149,7 @@ describe('mcp server', () => {
     expect(await call('search_ingredients', { q: 'oat' })).toMatchObject({
       ingredients: [{ id: oatsId, name: 'Oats', units: [{ name: 'cup', grams: 90 }] }],
     })
+    expect(await call('get_ingredient', { id: oatsId })).toMatchObject({ category: null })
     expect(await call('get_ingredient', { id: milkId })).toMatchObject({
       name: 'Milk',
       brand: null,
@@ -312,6 +313,12 @@ describe('mcp server', () => {
     expect(await callError('create_ingredient', { ...oatsInput, kcal: -1 })).toEqual([
       { type: 'text', text: expect.stringContaining('Calories must be ≥ 0') },
     ])
+  })
+
+  it('stores the category given to create_ingredient', async () => {
+    const id = await create('create_ingredient', { ...oatsInput, category: 'Grains', units: [] })
+    expect(await call('get_ingredient', { id })).toMatchObject({ category: 'Grains' })
+    await call('delete_ingredient', { id })
   })
 
   it('refuses to delete an ingredient used by a recipe', async () => {

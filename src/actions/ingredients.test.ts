@@ -21,6 +21,7 @@ beforeEach(() => {
 const oats: IngredientInput = {
   name: 'Oats',
   brand: 'Quaker',
+  category: null,
   kcal: 380,
   protein: 13,
   carbs: 60,

@@ -4,6 +4,7 @@ import { type IngredientInput, ingredientSchema } from './ingredient'
 const oats: IngredientInput = {
   name: 'Oats',
   brand: null,
+  category: null,
   kcal: 380,
   protein: 13,
   carbs: 60,
@@ -35,6 +36,11 @@ describe('ingredientSchema', () => {
 
   it('turns a blank brand into null', () => {
     expect(ingredientSchema.parse({ ...oats, brand: '  ' }).brand).toBeNull()
+  })
+
+  it('trims the category and turns a blank one into null', () => {
+    expect(ingredientSchema.parse({ ...oats, category: ' Dairy ' }).category).toBe('Dairy')
+    expect(ingredientSchema.parse({ ...oats, category: '  ' }).category).toBeNull()
   })
 
   it('rejects negative macros', () => {

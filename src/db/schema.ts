@@ -297,6 +297,7 @@ export const ingredient = sqliteTable('ingredient', {
   id: id(),
   name: text('name').notNull(),
   brand: text('brand'),
+  category: text('category'),
   kcal: real('kcal').notNull(),
   protein: real('protein').notNull(),
   carbs: real('carbs').notNull(),

@@ -25,6 +25,7 @@ const doc: ExportDoc = {
       id: 'i1',
       name: 'Oats',
       brand: null,
+      category: 'Grains',
       kcal: 380,
       protein: 13,
       carbs: 60,
@@ -53,6 +54,12 @@ describe('exportSchema', () => {
   it('accepts a document with base64 images', () => {
     const images = [{ id: imageId, width: 10, height: 10, data: 'UklGRg==' }]
     expect(exportSchema.safeParse({ ...doc, images }).success).toBe(true)
+  })
+
+  it('defaults a missing ingredient category to null for older exports', () => {
+    const legacy = { ...doc.ingredients[0], category: undefined }
+    const parsed = exportSchema.parse({ ...doc, ingredients: [legacy] })
+    expect(parsed.ingredients[0].category).toBeNull()
   })
 
   it('rejects another version with a clear message', () => {

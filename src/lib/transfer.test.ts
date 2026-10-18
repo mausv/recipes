@@ -37,6 +37,7 @@ async function seed() {
   const oats = insertIngredient(ana.id, {
     name: 'Oats',
     brand: 'Quaker',
+    category: 'Grains',
     fiber: 10,
     density: 0.4,
     source: 'off',
@@ -126,6 +127,7 @@ function ingredientEntry(overrides: Partial<IngredientEntry> = {}): IngredientEn
     id: crypto.randomUUID(),
     name: 'Oats',
     brand: null,
+    category: null,
     kcal: 380,
     protein: 13,
     carbs: 60,
@@ -228,6 +230,7 @@ describe('buildExport', () => {
       id: oats.id,
       name: 'Oats',
       brand: 'Quaker',
+      category: 'Grains',
       kcal: 380,
       protein: 13,
       carbs: 60,

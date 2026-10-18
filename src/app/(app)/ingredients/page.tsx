@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { listIngredients } from '@/lib/ingredients'
+import { groupByCategory, listIngredients } from '@/lib/ingredients'
 import { formatGrams, formatKcal } from '@/lib/nutrition'
 import { SourceBadge } from './source-badge'
 
@@ -20,6 +20,8 @@ export default async function IngredientsPage({ searchParams }: PageProps<'/ingr
   const { q } = await searchParams
   const query = typeof q === 'string' ? q.trim() : ''
   const ingredients = listIngredients(query)
+  const groups = groupByCategory(ingredients)
+  const showHeadings = groups.some(([category]) => category !== null)
 
   return (
     <div className="space-y-6">
@@ -86,60 +88,90 @@ export default async function IngredientsPage({ searchParams }: PageProps<'/ingr
                   <TableHead className="font-normal text-muted-foreground">Source</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {ingredients.map((i) => (
-                  <TableRow key={i.id}>
-                    <TableCell className="py-3 pl-0">
-                      <Link
-                        href={`/ingredients/${i.id}`}
-                        className="font-medium underline-offset-4 hover:underline"
+              {groups.map(([category, items]) => (
+                <TableBody key={category ?? ''}>
+                  {showHeadings && (
+                    <TableRow className="border-b-0 hover:bg-transparent">
+                      <TableHead
+                        colSpan={7}
+                        scope="colgroup"
+                        className="h-auto pt-6 pb-1 pl-0 font-heading text-[19px] font-normal italic"
                       >
-                        {i.name}
-                      </Link>
-                      {i.brand && (
-                        <div className="text-[13px] text-muted-foreground">{i.brand}</div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{formatKcal(i.kcal)}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatGrams(i.protein)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatGrams(i.carbs)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{formatGrams(i.fat)}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {i.fiber === null ? '–' : formatGrams(i.fiber)}
-                    </TableCell>
-                    <TableCell>
-                      <SourceBadge source={i.source} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
+                        {category ?? 'Other'}
+                      </TableHead>
+                    </TableRow>
+                  )}
+                  {items.map((i) => (
+                    <TableRow key={i.id}>
+                      <TableCell className="py-3 pl-0">
+                        <Link
+                          href={`/ingredients/${i.id}`}
+                          className="font-medium underline-offset-4 hover:underline"
+                        >
+                          {i.name}
+                        </Link>
+                        {i.brand && (
+                          <div className="text-[13px] text-muted-foreground">{i.brand}</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatKcal(i.kcal)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatGrams(i.protein)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatGrams(i.carbs)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatGrams(i.fat)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {i.fiber === null ? '–' : formatGrams(i.fiber)}
+                      </TableCell>
+                      <TableCell>
+                        <SourceBadge source={i.source} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              ))}
             </Table>
             <p className="mt-3 text-[13px] text-muted-foreground">Values per 100 g.</p>
           </div>
 
-          <ul className="divide-y md:hidden">
-            {ingredients.map((i) => (
-              <li key={i.id}>
-                <Link
-                  href={`/ingredients/${i.id}`}
-                  className="flex items-start justify-between gap-3 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-[17px] leading-snug">{i.name}</p>
-                    {i.brand && <p className="text-[13px] text-muted-foreground">{i.brand}</p>}
-                    <p className="mt-1 text-[13px] text-muted-foreground">
-                      <MacroSummary macros={i} /> per 100 g
-                    </p>
-                  </div>
-                  <SourceBadge source={i.source} />
-                </Link>
-              </li>
+          <div className="md:hidden">
+            {groups.map(([category, items]) => (
+              <section key={category ?? ''}>
+                {showHeadings && (
+                  <h2 className="pt-4 pb-1 text-[19px] font-normal italic">
+                    {category ?? 'Other'}
+                  </h2>
+                )}
+                <ul className="divide-y">
+                  {items.map((i) => (
+                    <li key={i.id}>
+                      <Link
+                        href={`/ingredients/${i.id}`}
+                        className="flex items-start justify-between gap-3 py-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-[17px] leading-snug">{i.name}</p>
+                          {i.brand && (
+                            <p className="text-[13px] text-muted-foreground">{i.brand}</p>
+                          )}
+                          <p className="mt-1 text-[13px] text-muted-foreground">
+                            <MacroSummary macros={i} /> per 100 g
+                          </p>
+                        </div>
+                        <SourceBadge source={i.source} />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </div>
         </>
       )}
     </div>

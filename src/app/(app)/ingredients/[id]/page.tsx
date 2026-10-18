@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { deleteIngredient } from '@/actions/ingredients'
 import { ConfirmDeleteButton } from '@/components/confirm-delete-button'
-import { getIngredient } from '@/lib/ingredients'
+import { getIngredient, listIngredientCategories } from '@/lib/ingredients'
 import { IngredientForm } from '../ingredient-form'
 
 export default async function EditIngredientPage({ params }: PageProps<'/ingredients/[id]'>) {
@@ -20,7 +20,7 @@ export default async function EditIngredientPage({ params }: PageProps<'/ingredi
           redirectTo="/ingredients"
         />
       </div>
-      <IngredientForm ingredient={ingredient} />
+      <IngredientForm ingredient={ingredient} categories={listIngredientCategories()} />
     </div>
   )
 }

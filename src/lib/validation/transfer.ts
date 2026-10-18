@@ -9,6 +9,7 @@ const exportIngredientSchema = z.object({
   id,
   name: z.string().trim().min(1),
   brand: z.string().nullable(),
+  category: z.string().nullable().default(null),
   kcal: amount,
   protein: amount,
   carbs: amount,
