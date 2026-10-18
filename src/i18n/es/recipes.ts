@@ -46,6 +46,8 @@ export const recipes: typeof en = {
   deleteComment: 'Eliminar comentario',
   saveCopy: 'Guardar una copia',
   copySaved: 'Guardada en tus recetas',
+  duplicate: 'Duplicar',
+  duplicated: 'Receta duplicada',
   share: 'Compartir',
   shareHint: 'Los miembros de estos grupos pueden ver y cocinar esta receta.',
 

@@ -81,7 +81,8 @@ export default async function RecipePage({ params }: PageProps<'/recipes/[id]'>)
               <Pencil />
               {t.common.edit}
             </Link>
-            {isOwner ? (
+            <CopyButton recipeId={id} isOwner={isOwner} />
+            {isOwner && (
               <>
                 <a
                   href={`/api/export?recipe=${id}&images=1`}
@@ -97,8 +98,6 @@ export default async function RecipePage({ params }: PageProps<'/recipes/[id]'>)
                   redirectTo="/"
                 />
               </>
-            ) : (
-              <CopyButton recipeId={id} />
             )}
           </div>
         </header>

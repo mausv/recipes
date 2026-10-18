@@ -44,6 +44,8 @@ export const recipes = {
   deleteComment: 'Delete comment',
   saveCopy: 'Save a copy',
   copySaved: 'Saved to your recipes',
+  duplicate: 'Duplicate',
+  duplicated: 'Recipe duplicated',
   share: 'Share',
   shareHint: 'Members of these groups can see and cook from this recipe.',
 

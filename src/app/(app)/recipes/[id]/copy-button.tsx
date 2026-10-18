@@ -8,7 +8,7 @@ import { copyRecipe } from '@/actions/recipes'
 import { Button } from '@/components/ui/button'
 import { useT, useTError } from '@/i18n/client'
 
-export function CopyButton({ recipeId }: { recipeId: string }) {
+export function CopyButton({ recipeId, isOwner }: { recipeId: string; isOwner: boolean }) {
   const router = useRouter()
   const t = useT()
   const tError = useTError()
@@ -21,15 +21,20 @@ export function CopyButton({ recipeId }: { recipeId: string }) {
         toast.error(tError(result.error))
         return
       }
-      toast.success(t.recipes.copySaved)
-      router.push(`/recipes/${result.id}`)
+      if (isOwner) {
+        toast.success(t.recipes.duplicated)
+        router.push(`/recipes/${result.id}/edit`)
+      } else {
+        toast.success(t.recipes.copySaved)
+        router.push(`/recipes/${result.id}`)
+      }
     })
   }
 
   return (
     <Button variant="ghost" onClick={copy} disabled={pending}>
       <Copy />
-      {pending ? t.recipes.saving : t.recipes.saveCopy}
+      {pending ? t.recipes.saving : isOwner ? t.recipes.duplicate : t.recipes.saveCopy}
     </Button>
   )
 }
