@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { AppIcon } from '@/components/app-icon'
 import { BottomNav, TopNav } from '@/components/app-nav'
 import { GroupSwitcher } from '@/components/group-switcher'
 import { Toaster } from '@/components/ui/sonner'
@@ -18,7 +19,11 @@ export default async function AppLayout({ children }: LayoutProps<'/'>) {
       <header className="sticky top-0 z-40 border-b bg-background">
         <div className="mx-auto flex h-14 max-w-[1040px] items-center gap-4 px-4 md:gap-8 md:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <Link href="/" className="font-heading text-[22px] leading-none font-medium">
+            <Link
+              href="/"
+              className="flex items-center gap-2 font-heading text-[22px] leading-none font-medium"
+            >
+              <AppIcon className="size-7" />
               Recipes
             </Link>
             <GroupSwitcher groups={listGroups(user.id)} activeId={activeGroup.id} />
