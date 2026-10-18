@@ -25,7 +25,7 @@ export function canViewRecipe(userId: string, recipeId: string) {
   )
 }
 
-export function canEditRecipe(userId: string, recipeId: string) {
+export function isRecipeOwner(userId: string, recipeId: string) {
   return Boolean(
     db
       .select({ id: recipe.id })

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { setupTestDb } from '@/test/db'
 
 const { insertUser, insertGroup, insertRecipe, shareInto } = await setupTestDb()
-const { canEditRecipe, canViewRecipe } = await import('./access')
+const { isRecipeOwner, canViewRecipe } = await import('./access')
 
 const owner = insertUser()
 const friend = insertUser()
@@ -41,16 +41,16 @@ describe('canViewRecipe', () => {
   })
 })
 
-describe('canEditRecipe', () => {
-  it('lets the owner edit', () => {
-    expect(canEditRecipe(owner.id, recipe.id)).toBe(true)
+describe('isRecipeOwner', () => {
+  it('is true for the owner', () => {
+    expect(isRecipeOwner(owner.id, recipe.id)).toBe(true)
   })
 
-  it('refuses a member the recipe is shared with', () => {
-    expect(canEditRecipe(friend.id, recipe.id)).toBe(false)
+  it('is false for a member the recipe is shared with', () => {
+    expect(isRecipeOwner(friend.id, recipe.id)).toBe(false)
   })
 
-  it('refuses an outsider', () => {
-    expect(canEditRecipe(outsider.id, recipe.id)).toBe(false)
+  it('is false for an outsider', () => {
+    expect(isRecipeOwner(outsider.id, recipe.id)).toBe(false)
   })
 })

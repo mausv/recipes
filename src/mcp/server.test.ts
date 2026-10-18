@@ -354,15 +354,30 @@ describe('mcp server', () => {
     expect(await call('list_recipes', { q: 'Secret' })).toEqual({ recipes: [] })
   })
 
-  it('shows a friend’s recipe shared into the group but refuses to change it', async () => {
+  it('shows a friend’s recipe shared into the group but refuses to delete it', async () => {
     const shared = insertRecipe(friend.id, { title: 'Friend’s stew' })
     shareInto(shared.id, home.id, friend.id)
     expect(await call('list_recipes', { q: 'stew' })).toMatchObject({
       recipes: [{ id: shared.id }],
     })
     expect(await callError('delete_recipe', { id: shared.id })).toEqual([
-      { type: 'text', text: 'Only the owner can change this recipe' },
+      { type: 'text', text: 'Only the owner can delete or share this recipe' },
     ])
+  })
+
+  it('updates a friend’s recipe shared into the group', async () => {
+    const shared = insertRecipe(friend.id, { title: 'Friend’s soup' })
+    shareInto(shared.id, home.id, friend.id)
+    await call('update_recipe', {
+      id: shared.id,
+      title: 'Friend’s better soup',
+      servings: 2,
+      ingredients: [],
+      steps: [],
+    })
+    expect(await call('get_recipe', { id: shared.id })).toMatchObject({
+      title: 'Friend’s better soup',
+    })
   })
 
   it('marks list_recipes results with their owner and whether they are yours', async () => {
@@ -519,7 +534,7 @@ describe('mcp group scoping', () => {
     const recipeId = insertRecipe(friend.id).id
     shareInto(recipeId, cabin.id, friend.id)
     expect(await asCook.callError('list_recipe_shares', { recipeId })).toEqual([
-      { type: 'text', text: 'Only the owner can change this recipe' },
+      { type: 'text', text: 'Only the owner can delete or share this recipe' },
     ])
   })
 

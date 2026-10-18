@@ -11,7 +11,7 @@ import {
   recipeStep,
   user,
 } from '@/db/schema'
-import { canEditRecipe, canViewRecipe } from './access'
+import { canViewRecipe, isRecipeOwner } from './access'
 import { isMember } from './groups'
 import { deleteImage, imagePath } from './images'
 import { computeRecipeBreakdown } from './nutrition'
@@ -22,9 +22,9 @@ import type { RecipeData } from './validation/recipe'
 export type RecipeScope = 'all' | 'mine' | 'group'
 
 export function ownerError(userId: string, recipeId: string) {
-  if (canEditRecipe(userId, recipeId)) return undefined
+  if (isRecipeOwner(userId, recipeId)) return undefined
   return canViewRecipe(userId, recipeId)
-    ? 'Only the owner can change this recipe'
+    ? 'Only the owner can delete or share this recipe'
     : 'Recipe not found'
 }
 
@@ -192,8 +192,7 @@ export async function updateRecipe(
   userId: string,
   { ingredients, steps, ...values }: RecipeData
 ) {
-  const error = ownerError(userId, id)
-  if (error) return { error }
+  if (!canViewRecipe(userId, id)) return { error: 'Recipe not found' }
   const resolved = resolveGrams(ingredients)
   if (resolved.error !== undefined) return { error: resolved.error }
 
@@ -240,8 +239,7 @@ export async function deleteRecipe(id: string, userId: string) {
 }
 
 export async function setCoverImage(recipeId: string, userId: string, imageId: string | null) {
-  const error = ownerError(userId, recipeId)
-  if (error) return { error }
+  if (!canViewRecipe(userId, recipeId)) return { error: 'Recipe not found' }
   const current = db
     .select({ coverImageId: recipe.coverImageId })
     .from(recipe)

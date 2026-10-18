@@ -358,12 +358,10 @@ describe('owner-only changes', () => {
       .get()?.title
   }
 
-  it('refuses to update a recipe for a member it is shared with', async () => {
+  it('lets a member it is shared with update the recipe', async () => {
     const { id } = sharedRecipe()
-    expect(await updateRecipe(id, friend.id, emptyRecipe)).toEqual({
-      error: 'Only the owner can change this recipe',
-    })
-    expect(titleOf(id)).toBe('Shared')
+    expect(await updateRecipe(id, friend.id, emptyRecipe)).toEqual({ id })
+    expect(titleOf(id)).toBe('Toast')
   })
 
   it('reports a recipe the user cannot see as not found', async () => {
@@ -382,15 +380,20 @@ describe('owner-only changes', () => {
   it('refuses to delete a recipe for a member it is shared with', async () => {
     const { id } = sharedRecipe()
     expect(await deleteRecipe(id, friend.id)).toEqual({
-      error: 'Only the owner can change this recipe',
+      error: 'Only the owner can delete or share this recipe',
     })
     expect(titleOf(id)).toBe('Shared')
   })
 
-  it('refuses to set the cover for a member it is shared with', async () => {
+  it('lets a member it is shared with set the cover', async () => {
     const { id } = sharedRecipe()
-    expect(await setCoverImage(id, friend.id, null)).toEqual({
-      error: 'Only the owner can change this recipe',
+    expect(await setCoverImage(id, friend.id, null)).toEqual({})
+  })
+
+  it('reports the cover of a recipe the user cannot see as not found', async () => {
+    const { id } = sharedRecipe()
+    expect(await setCoverImage(id, insertUser().id, null)).toEqual({
+      error: 'Recipe not found',
     })
   })
 })
@@ -576,7 +579,7 @@ describe('shareRecipe and unshareRecipe', () => {
     shareInto(recipe.id, kitchen.id, owner.id)
     const other = insertGroup('Other', [friend.id])
     expect(shareRecipe(recipe.id, other.id, friend.id)).toEqual({
-      error: 'Only the owner can change this recipe',
+      error: 'Only the owner can delete or share this recipe',
     })
   })
 
@@ -591,7 +594,7 @@ describe('shareRecipe and unshareRecipe', () => {
     const recipe = insertRecipe(owner.id)
     shareInto(recipe.id, kitchen.id, owner.id)
     expect(unshareRecipe(recipe.id, kitchen.id, friend.id)).toEqual({
-      error: 'Only the owner can change this recipe',
+      error: 'Only the owner can delete or share this recipe',
     })
     expect(listRecipeShares(recipe.id)).toHaveLength(1)
   })

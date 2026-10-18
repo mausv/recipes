@@ -70,13 +70,13 @@ export default async function RecipePage({ params }: PageProps<'/recipes/[id]'>)
         </div>
         <div className="order-last flex flex-wrap items-center gap-x-1 gap-y-2 pt-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:self-end lg:pt-0">
           <AddToShoppingListButton recipeId={id} defaultServings={recipe.servings} />
+          {isOwner && <ShareButton recipeId={id} groups={shareGroups} />}
+          <Link href={`/recipes/${id}/edit`} className={buttonVariants({ variant: 'ghost' })}>
+            <Pencil />
+            Edit
+          </Link>
           {isOwner ? (
             <>
-              <ShareButton recipeId={id} groups={shareGroups} />
-              <Link href={`/recipes/${id}/edit`} className={buttonVariants({ variant: 'ghost' })}>
-                <Pencil />
-                Edit
-              </Link>
               <a
                 href={`/api/export?recipe=${id}&images=1`}
                 className={buttonVariants({ variant: 'ghost' })}

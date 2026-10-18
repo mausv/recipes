@@ -447,7 +447,7 @@ describe('setCoverImage', () => {
   })
 })
 
-describe('owner checks', () => {
+describe('shared recipe permissions', () => {
   async function sharedWithFriend() {
     const id = await created()
     shareInto(id, kitchen.id, user.id)
@@ -455,25 +455,32 @@ describe('owner checks', () => {
     return id
   }
 
-  it('refuses to update another user’s recipe', async () => {
+  it('lets a group member update a recipe shared with them', async () => {
     const id = await sharedWithFriend()
+    expect(await updateRecipe(id, recipeInput({ title: 'Better porridge' }))).toEqual({ id })
+    expect(findRecipe(id)).toMatchObject({ title: 'Better porridge', createdById: user.id })
+  })
+
+  it('refuses to update a recipe the user cannot see', async () => {
+    const id = await created()
+    vi.mocked(requireUser).mockResolvedValue(insertUser())
     expect(await updateRecipe(id, recipeInput({ title: 'Mine now' }))).toEqual({
-      error: 'Only the owner can change this recipe',
+      error: 'Recipe not found',
     })
     expect(findRecipe(id)?.title).toBe('Porridge')
   })
 
   it('refuses to delete another user’s recipe', async () => {
     const id = await sharedWithFriend()
-    expect(await deleteRecipe(id)).toEqual({ error: 'Only the owner can change this recipe' })
+    expect(await deleteRecipe(id)).toEqual({
+      error: 'Only the owner can delete or share this recipe',
+    })
     expect(findRecipe(id)).toBeDefined()
   })
 
-  it('refuses to set the cover of another user’s recipe', async () => {
+  it('lets a group member set the cover of a recipe shared with them', async () => {
     const id = await sharedWithFriend()
-    expect(await setCoverImage(id, null)).toEqual({
-      error: 'Only the owner can change this recipe',
-    })
+    expect(await setCoverImage(id, null)).toEqual({})
   })
 })
 
@@ -513,7 +520,7 @@ describe('shareRecipe', () => {
     vi.mocked(requireUser).mockResolvedValue(friend)
     const other = insertGroup('Other', [friend.id])
     expect(await shareRecipe(id, other.id)).toEqual({
-      error: 'Only the owner can change this recipe',
+      error: 'Only the owner can delete or share this recipe',
     })
   })
 
@@ -539,7 +546,7 @@ describe('unshareRecipe', () => {
     shareInto(id, kitchen.id, user.id)
     vi.mocked(requireUser).mockResolvedValue(friend)
     expect(await unshareRecipe(id, kitchen.id)).toEqual({
-      error: 'Only the owner can change this recipe',
+      error: 'Only the owner can delete or share this recipe',
     })
     expect(listRecipeShares(id)).toHaveLength(1)
   })

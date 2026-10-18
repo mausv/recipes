@@ -8,7 +8,7 @@ export default async function EditRecipePage({ params }: PageProps<'/recipes/[id
   const { id } = await params
   const user = await requireUser()
   const recipe = await getRecipeWithNutrition(id, user.id)
-  if (!recipe || recipe.createdById !== user.id) notFound()
+  if (!recipe) notFound()
 
   return (
     <RecipeForm

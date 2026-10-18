@@ -274,7 +274,7 @@ export function createMcpServer(userId: string) {
     'update_recipe',
     {
       description:
-        'Replace a recipe’s fields, ingredient lines and steps. Omit coverImageId to keep the current cover; pass each step’s imageId from get_recipe to keep step photos.',
+        'Replace a recipe’s fields, ingredient lines and steps. Works on your recipes and ones shared into your groups. Omit coverImageId to keep the current cover; pass each step’s imageId from get_recipe to keep step photos.',
       inputSchema: recipeInput.extend({ id, coverImageId: z.string().nullable().optional() }),
       annotations: destructive,
     },
@@ -293,7 +293,7 @@ export function createMcpServer(userId: string) {
   server.registerTool(
     'delete_recipe',
     {
-      description: 'Delete a recipe and its photos.',
+      description: 'Delete one of your recipes and its photos.',
       inputSchema: { id },
       annotations: destructive,
     },
