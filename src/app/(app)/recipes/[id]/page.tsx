@@ -52,16 +52,16 @@ export default async function RecipePage({ params }: PageProps<'/recipes/[id]'>)
           />
         )}
 
-        <header className="mt-6 grid gap-y-3 md:mt-10 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-x-10">
-          <h1 className="text-[40px] leading-[1.05] tracking-[-0.02em] text-balance md:text-[56px] lg:col-start-1">
+        <header className="mt-6 grid gap-y-3 md:mt-10">
+          <h1 className="text-[40px] leading-[1.05] tracking-[-0.02em] text-balance md:text-[56px]">
             {recipe.title}
           </h1>
           {recipe.description && (
-            <p className="max-w-[60ch] text-[17px] whitespace-pre-line text-muted-foreground lg:col-start-1">
+            <p className="max-w-[60ch] text-[17px] whitespace-pre-line text-muted-foreground">
               {recipe.description}
             </p>
           )}
-          <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground lg:col-start-1">
+          <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
             <span className="mr-1">{t.recipes.by(recipe.createdBy.name)}</span>
             {recipe.tags.map((tag) => (
               <Link
@@ -73,7 +73,7 @@ export default async function RecipePage({ params }: PageProps<'/recipes/[id]'>)
               </Link>
             ))}
           </div>
-          <div className="order-last flex flex-wrap items-center gap-x-1 gap-y-2 pt-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:self-end lg:pt-0">
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-2 pt-2">
             <AddToShoppingListButton recipeId={id} defaultServings={recipe.servings} />
             {isOwner && <ShareButton recipeId={id} groups={shareGroups} />}
             <PdfButton recipeId={id} />
