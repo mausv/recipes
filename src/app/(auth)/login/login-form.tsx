@@ -49,7 +49,15 @@ export function LoginForm() {
             <Input id="email" name="email" type="email" autoComplete="email" required />
           </Field>
           <Field>
-            <FieldLabel htmlFor="password">{t.auth.password}</FieldLabel>
+            <div className="flex items-center justify-between gap-2">
+              <FieldLabel htmlFor="password">{t.auth.password}</FieldLabel>
+              <Link
+                href="/forgot-password"
+                className="text-sm text-primary underline underline-offset-4"
+              >
+                {t.auth.forgotPassword}
+              </Link>
+            </div>
             <Input
               id="password"
               name="password"

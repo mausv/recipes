@@ -83,12 +83,19 @@ const sourceMessages = [
   'Email not verified',
   'Email and password sign up is not enabled',
   'Too many requests. Please try again later.',
+  'Invalid token',
+  'User not found',
+  'Credential account not found',
+  'Unauthorized',
+  'Failed to get session',
   'Used by Pancakes. Remove it from those recipes first.',
   'Unit "slice" is used by Toast',
   'Unknown unit "slice" for Bread',
   'Image 123 is not a valid WebP image',
   '"Toast" uses an ingredient missing from the file',
   'Invalid export file: Invalid input at recipes.0.title',
+  'Focus must be a whole number',
+  'Focus must be between 0 and 100',
 ]
 
 describe('Spanish errors', () => {

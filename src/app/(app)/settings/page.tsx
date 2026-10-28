@@ -3,6 +3,7 @@ import { listApiKeys } from '@/lib/api-keys'
 import { getT } from '@/lib/i18n-server'
 import { listConnectedClients } from '@/lib/oauth'
 import { requireUser } from '@/lib/session'
+import { ChangePasswordCard } from './change-password-card'
 import { ConnectClaudeCard } from './connect-claude-card'
 import { ExportCard } from './export-card'
 import { ImportCard } from './import-card'
@@ -21,6 +22,7 @@ export default async function SettingsPage() {
           <p className="text-muted-foreground">{user.email}</p>
         </div>
       </section>
+      <ChangePasswordCard />
       <section className="max-w-2xl space-y-1">
         <h2 className="text-2xl">{t.settings.groups}</h2>
         <p className="text-muted-foreground">

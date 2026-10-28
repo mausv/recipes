@@ -86,3 +86,142 @@ describe('sign-up group hook', () => {
     ])
   })
 })
+
+function post(path: string, body: Record<string, unknown>, cookie?: string) {
+  return handler(
+    new Request(`http://localhost:3000/api/auth${path}`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: 'http://localhost:3000',
+        ...(cookie && { cookie }),
+      },
+      body: JSON.stringify(body),
+    })
+  )
+}
+
+function sessionCookie(res: Response) {
+  return res.headers.get('set-cookie')?.match(/better-auth\.session_token=[^;]+/)?.[0] ?? ''
+}
+
+function getSession(cookie: string) {
+  return handler(new Request('http://localhost:3000/api/auth/get-session', { headers: { cookie } }))
+}
+
+describe('password reset', () => {
+  const email = 'reset@example.com'
+
+  async function requestResetLink() {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const res = await post('/request-password-reset', { email, redirectTo: '/reset-password' })
+    const lines = info.mock.calls.map((args) => args.join(' '))
+    info.mockRestore()
+    return { res, lines }
+  }
+
+  beforeAll(async () => {
+    await signUp({ ...account, email, inviteCode: 'open-sesame' })
+  })
+
+  it('logs the email and reset URL on one line instead of emailing', async () => {
+    const { res, lines } = await requestResetLink()
+    expect(res.status).toBe(200)
+    expect(lines).toEqual([
+      expect.stringMatching(
+        /^\[password-reset\] reset@example\.com http:\/\/localhost:3000\/api\/auth\/reset-password\/\w+\?callbackURL=%2Freset-password$/
+      ),
+    ])
+  })
+
+  it('answers unknown emails the same way without logging a link', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const res = await post('/request-password-reset', {
+      email: 'nobody@example.com',
+      redirectTo: '/reset-password',
+    })
+    expect(info).not.toHaveBeenCalled()
+    info.mockRestore()
+    const known = await requestResetLink()
+    expect(await res.json()).toEqual(await known.res.json())
+  })
+
+  it('redirects the logged link to the reset page with the token', async () => {
+    const { lines } = await requestResetLink()
+    const url = lines[0].split(' ')[2]
+    const res = await handler(new Request(url))
+    const token = new URL(url).pathname.split('/').pop()
+    expect(res.headers.get('location')).toBe(`http://localhost:3000/reset-password?token=${token}`)
+  })
+
+  it('redirects an unknown token to the reset page with an error', async () => {
+    const res = await handler(
+      new Request(
+        'http://localhost:3000/api/auth/reset-password/bogus?callbackURL=%2Freset-password'
+      )
+    )
+    expect(res.headers.get('location')).toBe(
+      'http://localhost:3000/reset-password?error=INVALID_TOKEN'
+    )
+  })
+
+  it('sets the new password, revokes sessions and consumes the token', async () => {
+    const signIn = await post('/sign-in/email', { email, password: account.password })
+    const cookie = sessionCookie(signIn)
+    const { lines } = await requestResetLink()
+    const token = new URL(lines[0].split(' ')[2]).pathname.split('/').pop()
+
+    const res = await post('/reset-password', { newPassword: 'brand-new-password', token })
+    expect(res.status).toBe(200)
+    expect(await (await getSession(cookie)).json()).toBeNull()
+
+    const oldLogin = await post('/sign-in/email', { email, password: account.password })
+    expect(oldLogin.status).toBe(401)
+    const newLogin = await post('/sign-in/email', { email, password: 'brand-new-password' })
+    expect(newLogin.status).toBe(200)
+
+    const reuse = await post('/reset-password', { newPassword: 'another-password', token })
+    expect(await reuse.json()).toMatchObject({ code: 'INVALID_TOKEN', message: 'Invalid token' })
+  })
+})
+
+describe('change password', () => {
+  const email = 'change@example.com'
+
+  beforeAll(async () => {
+    await signUp({ ...account, email, inviteCode: 'open-sesame' })
+  })
+
+  it('rejects a wrong current password', async () => {
+    const cookie = sessionCookie(
+      await post('/sign-in/email', { email, password: account.password })
+    )
+    const res = await post(
+      '/change-password',
+      { currentPassword: 'wrong-password', newPassword: 'changed-password' },
+      cookie
+    )
+    expect(await res.json()).toMatchObject({ message: 'Invalid password' })
+  })
+
+  it('changes the password and signs out other sessions', async () => {
+    const other = sessionCookie(await post('/sign-in/email', { email, password: account.password }))
+    const current = sessionCookie(
+      await post('/sign-in/email', { email, password: account.password })
+    )
+    const res = await post(
+      '/change-password',
+      {
+        currentPassword: account.password,
+        newPassword: 'changed-password',
+        revokeOtherSessions: true,
+      },
+      current
+    )
+    expect(res.status).toBe(200)
+    expect(await (await getSession(other)).json()).toBeNull()
+    expect(await (await getSession(sessionCookie(res))).json()).toMatchObject({ user: { email } })
+    const login = await post('/sign-in/email', { email, password: 'changed-password' })
+    expect(login.status).toBe(200)
+  })
+})

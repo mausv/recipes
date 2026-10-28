@@ -1,4 +1,5 @@
 import { AppIcon } from '@/components/app-icon'
+import { Toaster } from '@/components/ui/sonner'
 import { getT } from '@/lib/i18n-server'
 
 export default async function AuthLayout({ children }: LayoutProps<'/'>) {
@@ -12,6 +13,7 @@ export default async function AuthLayout({ children }: LayoutProps<'/'>) {
         </p>
         {children}
       </div>
+      <Toaster />
     </main>
   )
 }

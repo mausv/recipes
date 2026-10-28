@@ -96,6 +96,13 @@ export const errors: Record<string, string> = {
   'Email and password sign up is not enabled':
     'El registro con correo y contraseña no está habilitado',
   'Too many requests. Please try again later.': 'Demasiados intentos. Intenta más tarde.',
+  'Invalid token': 'Token no válido',
+  'User not found': 'No se encontró la cuenta',
+  'Credential account not found': 'Esta cuenta no tiene contraseña',
+  Unauthorized: 'No autorizado',
+  'Failed to get session': 'No se pudo obtener la sesión',
+  'Focus must be a whole number': 'El punto de enfoque debe ser un número entero',
+  'Focus must be between 0 and 100': 'El punto de enfoque debe estar entre 0 y 100',
 }
 
 const zodDetail = (message: string) =>

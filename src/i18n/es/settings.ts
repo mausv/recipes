@@ -8,6 +8,11 @@ export const settings: typeof en = {
   title: 'Ajustes',
   account: 'Cuenta',
   groups: 'Grupos',
+  changePassword: 'Cambiar contraseña',
+  changePasswordDescription:
+    'Seguirás con la sesión iniciada aquí y se cerrará en todos los demás dispositivos.',
+  changingPassword: 'Cambiando…',
+  passwordChanged: 'Contraseña cambiada',
   groupsNote: 'Los miembros y enlaces de invitación están en la',
   groupsPage: 'página de grupos',
   connectClaude: 'Conectar Claude',
