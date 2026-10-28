@@ -107,6 +107,8 @@ export function AddEntryDialog({
                       <RecipeThumb
                         title={recipe.title}
                         coverImageId={recipe.coverImageId}
+                        coverFocusX={recipe.coverFocusX}
+                        coverFocusY={recipe.coverFocusY}
                         className="size-8 text-base"
                       />
                       <span className="truncate">{recipe.title}</span>

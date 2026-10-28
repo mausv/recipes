@@ -127,7 +127,12 @@ function ChipBody({ entry, stacked }: { entry: PlanEntry; stacked: boolean }) {
         stacked ? 'flex-col' : 'items-center'
       )}
     >
-      <RecipeThumb title={entry.recipe.title} coverImageId={entry.recipe.coverImageId} />
+      <RecipeThumb
+        title={entry.recipe.title}
+        coverImageId={entry.recipe.coverImageId}
+        coverFocusX={entry.recipe.coverFocusX}
+        coverFocusY={entry.recipe.coverFocusY}
+      />
       <span className={cn('min-w-0 flex-1', !stacked && 'flex items-baseline gap-2')}>
         <span
           className={cn(

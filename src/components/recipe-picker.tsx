@@ -21,16 +21,22 @@ export type PickerRecipe = {
   title: string
   servings: number
   coverImageId: string | null
+  coverFocusX: number
+  coverFocusY: number
   kcalPerServing: number
 }
 
 export function RecipeThumb({
   title,
   coverImageId,
+  coverFocusX,
+  coverFocusY,
   className,
 }: {
   title: string
   coverImageId: string | null
+  coverFocusX: number
+  coverFocusY: number
   className?: string
 }) {
   return (
@@ -48,6 +54,7 @@ export function RecipeThumb({
           unoptimized
           sizes="40px"
           className="object-cover"
+          style={{ objectPosition: `${coverFocusX}% ${coverFocusY}%` }}
         />
       ) : (
         <span aria-hidden>{title.charAt(0)}</span>
@@ -102,7 +109,12 @@ export function RecipePicker({
                     setOpen(false)
                   }}
                 >
-                  <RecipeThumb title={r.title} coverImageId={r.coverImageId} />
+                  <RecipeThumb
+                    title={r.title}
+                    coverImageId={r.coverImageId}
+                    coverFocusX={r.coverFocusX}
+                    coverFocusY={r.coverFocusY}
+                  />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{r.title}</span>
                     <span className="block text-[13px] text-muted-foreground tabular-nums">

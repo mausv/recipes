@@ -18,6 +18,16 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -47,7 +57,10 @@ type Line = {
   groupName: string
   showGroup: boolean
 }
-type Step = { key: number; text: string; imageId: string | null }
+type Focus = { x: number; y: number }
+type Step = { key: number; text: string; imageId: string | null; focus: Focus }
+
+const CENTER: Focus = { x: 50, y: 50 }
 
 let nextKey = 0
 
@@ -85,6 +98,10 @@ export function RecipeForm({
   const [tags, setTags] = useState(recipe?.tags ?? [])
   const [tagDraft, setTagDraft] = useState('')
   const [coverImageId, setCoverImageId] = useState(recipe?.coverImageId ?? null)
+  const [coverFocus, setCoverFocus] = useState<Focus>({
+    x: recipe?.coverFocusX ?? 50,
+    y: recipe?.coverFocusY ?? 50,
+  })
   const [lines, setLines] = useState<Line[]>(
     () =>
       recipe?.ingredients.map((l) => ({
@@ -97,7 +114,13 @@ export function RecipeForm({
       })) ?? []
   )
   const [steps, setSteps] = useState<Step[]>(
-    () => recipe?.steps.map((s) => ({ key: nextKey++, text: s.text, imageId: s.imageId })) ?? []
+    () =>
+      recipe?.steps.map((s) => ({
+        key: nextKey++,
+        text: s.text,
+        imageId: s.imageId,
+        focus: { x: s.imageFocusX ?? 50, y: s.imageFocusY ?? 50 },
+      })) ?? []
   )
   const [error, setError] = useState<string>()
   const [pending, startTransition] = useTransition()
@@ -155,13 +178,20 @@ export function RecipeForm({
       cookedWeightGrams: cookedWeight.trim() === '' ? null : Number(cookedWeight),
       tags: [...tags, tagDraft],
       coverImageId,
+      coverFocusX: coverFocus.x,
+      coverFocusY: coverFocus.y,
       ingredients: lines.map((l) => ({
         ingredientId: l.ingredientId,
         quantity: Number(l.quantity),
         unit: l.unit,
         groupName: l.groupName,
       })),
-      steps: steps.map((s) => ({ text: s.text, imageId: s.imageId })),
+      steps: steps.map((s) => ({
+        text: s.text,
+        imageId: s.imageId,
+        imageFocusX: s.focus.x,
+        imageFocusY: s.focus.y,
+      })),
     }
     startTransition(async () => {
       const result = recipe ? await updateRecipe(recipe.id, input) : await createRecipe(input)
@@ -279,7 +309,15 @@ export function RecipeForm({
 
           <section className="space-y-5">
             <h2 className="text-2xl">{t.recipes.photo}</h2>
-            <CoverPicker imageId={coverImageId} onChange={setCoverImageId} />
+            <CoverPicker
+              imageId={coverImageId}
+              focus={coverFocus}
+              onChange={(imageId) => {
+                setCoverImageId(imageId)
+                setCoverFocus(CENTER)
+              }}
+              onFocusChange={setCoverFocus}
+            />
           </section>
 
           <section className="space-y-4">
@@ -437,7 +475,9 @@ export function RecipeForm({
                     <div className="flex items-start justify-between gap-2">
                       <StepPhoto
                         imageId={step.imageId}
-                        onChange={(imageId) => updateStep(step.key, { imageId })}
+                        focus={step.focus}
+                        onChange={(imageId) => updateStep(step.key, { imageId, focus: CENTER })}
+                        onFocusChange={(focus) => updateStep(step.key, { focus })}
                       />
                       <div className="flex shrink-0 text-muted-foreground">
                         <Button
@@ -480,7 +520,10 @@ export function RecipeForm({
               variant="ghost"
               className="-ml-4 text-primary hover:text-primary sm:-ml-3.5"
               onClick={() =>
-                setSteps((rows) => [...rows, { key: nextKey++, text: '', imageId: null }])
+                setSteps((rows) => [
+                  ...rows,
+                  { key: nextKey++, text: '', imageId: null, focus: CENTER },
+                ])
               }
             >
               <Plus />
@@ -634,12 +677,158 @@ function useImageUpload(onChange: (imageId: string) => void) {
   }
 }
 
-function CoverPicker({
+function objectPosition({ x, y }: Focus) {
+  return { objectPosition: `${x}% ${y}%` }
+}
+
+function FocusDialog({
   imageId,
+  focus,
   onChange,
 }: {
+  imageId: string
+  focus: Focus
+  onChange: (focus: Focus) => void
+}) {
+  const t = useT()
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState(focus)
+  const [ratio, setRatio] = useState(4 / 3)
+  const src = `/api/images/${imageId}`
+
+  function place(event: React.PointerEvent<HTMLDivElement>) {
+    const box = event.currentTarget.getBoundingClientRect()
+    const percent = (offset: number, size: number) =>
+      Math.round(Math.min(100, Math.max(0, (offset / size) * 100)))
+    setDraft({
+      x: percent(event.clientX - box.left, box.width),
+      y: percent(event.clientY - box.top, box.height),
+    })
+  }
+
+  function nudge(event: React.KeyboardEvent<HTMLDivElement>) {
+    const step = event.shiftKey ? 10 : 1
+    const moves: Record<string, Focus> = {
+      ArrowLeft: { x: -step, y: 0 },
+      ArrowRight: { x: step, y: 0 },
+      ArrowUp: { x: 0, y: -step },
+      ArrowDown: { x: 0, y: step },
+    }
+    const move = moves[event.key]
+    if (!move) return
+    event.preventDefault()
+    setDraft((current) => ({
+      x: Math.min(100, Math.max(0, current.x + move.x)),
+      y: Math.min(100, Math.max(0, current.y + move.y)),
+    }))
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) setDraft(focus)
+        setOpen(next)
+      }}
+    >
+      <DialogTrigger render={<Button type="button" variant="ghost" size="sm" />}>
+        {t.recipes.adjust}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-xl">{t.recipes.focusTitle}</DialogTitle>
+          <DialogDescription>{t.recipes.focusHint}</DialogDescription>
+        </DialogHeader>
+        <div
+          role="slider"
+          tabIndex={0}
+          aria-label={t.recipes.focusPoint}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={draft.x}
+          aria-valuetext={t.recipes.focusValue(draft.x, draft.y)}
+          className="relative mx-auto cursor-crosshair touch-none overflow-hidden rounded-lg bg-secondary outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          style={{ aspectRatio: ratio, width: `min(100%, 50vh * ${ratio})` }}
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId)
+            place(event)
+          }}
+          onPointerMove={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) place(event)
+          }}
+          onKeyDown={nudge}
+        >
+          <Image
+            src={src}
+            alt=""
+            fill
+            unoptimized
+            draggable={false}
+            className="object-contain"
+            onLoad={(event) =>
+              setRatio(event.currentTarget.naturalWidth / event.currentTarget.naturalHeight)
+            }
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute size-7 -translate-1/2 rounded-full border-2 border-white bg-white/20 shadow-[0_0_0_1px_rgb(0_0_0/0.4),0_1px_4px_rgb(0_0_0/0.4)]"
+            style={{ left: `${draft.x}%`, top: `${draft.y}%` }}
+          />
+        </div>
+        <div className="space-y-2">
+          <p className="text-[13px] text-muted-foreground">{t.recipes.focusPreview}</p>
+          <div className="grid grid-cols-[minmax(0,16fr)_minmax(0,9fr)] items-end gap-3">
+            {[
+              { label: t.recipes.previewWide, aspect: 'aspect-video' },
+              { label: t.recipes.previewStandard, aspect: 'aspect-4/3' },
+            ].map((frame) => (
+              <figure key={frame.aspect} className="space-y-1">
+                <div
+                  className={cn('relative overflow-hidden rounded-md bg-secondary', frame.aspect)}
+                >
+                  <Image
+                    src={src}
+                    alt=""
+                    fill
+                    unoptimized
+                    className="object-cover"
+                    style={objectPosition(draft)}
+                  />
+                </div>
+                <figcaption className="text-[13px] text-muted-foreground">{frame.label}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose render={<Button type="button" variant="outline" />}>
+            {t.common.cancel}
+          </DialogClose>
+          <Button
+            type="button"
+            onClick={() => {
+              onChange(draft)
+              setOpen(false)
+            }}
+          >
+            {t.recipes.done}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function CoverPicker({
+  imageId,
+  focus,
+  onChange,
+  onFocusChange,
+}: {
   imageId: string | null
+  focus: Focus
   onChange: (imageId: string | null) => void
+  onFocusChange: (focus: Focus) => void
 }) {
   const t = useT()
   const { pending, upload, pick, fileInput } = useImageUpload(onChange)
@@ -662,12 +851,14 @@ function CoverPicker({
               fill
               unoptimized
               className="object-cover"
+              style={objectPosition(focus)}
             />
           </div>
           <div className="-ml-3.5 flex gap-1">
             <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={pick}>
               {pending ? t.recipes.uploading : t.recipes.replace}
             </Button>
+            <FocusDialog imageId={imageId} focus={focus} onChange={onFocusChange} />
             <Button
               type="button"
               variant="ghost"
@@ -698,10 +889,14 @@ function CoverPicker({
 
 function StepPhoto({
   imageId,
+  focus,
   onChange,
+  onFocusChange,
 }: {
   imageId: string | null
+  focus: Focus
   onChange: (imageId: string | null) => void
+  onFocusChange: (focus: Focus) => void
 }) {
   const t = useT()
   const { pending, pick, fileInput } = useImageUpload(onChange)
@@ -710,7 +905,14 @@ function StepPhoto({
     <div className="min-w-0 space-y-2">
       {imageId && (
         <div className="relative aspect-4/3 w-48 max-w-full overflow-hidden rounded-lg bg-secondary">
-          <Image src={`/api/images/${imageId}`} alt="" fill unoptimized className="object-cover" />
+          <Image
+            src={`/api/images/${imageId}`}
+            alt=""
+            fill
+            unoptimized
+            className="object-cover"
+            style={objectPosition(focus)}
+          />
         </div>
       )}
       <div className="-ml-3.5 flex flex-wrap">
@@ -725,15 +927,18 @@ function StepPhoto({
           {pending ? t.recipes.uploading : imageId ? t.recipes.replacePhoto : t.recipes.addPhoto}
         </Button>
         {imageId && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
-            onClick={() => onChange(null)}
-          >
-            {t.recipes.remove}
-          </Button>
+          <>
+            <FocusDialog imageId={imageId} focus={focus} onChange={onFocusChange} />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => onChange(null)}
+            >
+              {t.recipes.remove}
+            </Button>
+          </>
         )}
       </div>
       {fileInput}

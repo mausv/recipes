@@ -9,10 +9,12 @@ const recipe: ExportDoc['recipes'][number] = {
   cookedWeightGrams: null,
   tags: [],
   coverImageId: null,
+  coverFocusX: 30,
+  coverFocusY: 70,
   ingredients: [
     { ingredientId: 'i1', quantity: 80, unit: 'g', grams: 80, groupName: null, position: 0 },
   ],
-  steps: [{ text: 'Simmer', imageId: null, position: 0 }],
+  steps: [{ text: 'Simmer', imageId: null, imageFocusX: 50, imageFocusY: 50, position: 0 }],
   comments: [{ authorName: 'Ana', text: 'Nice', createdAt: '2026-01-02T03:04:05.678Z' }],
   notes: [{ authorName: 'Ana', text: 'Less salt', updatedAt: '2026-01-02T03:04:05.678Z' }],
 }
@@ -60,6 +62,26 @@ describe('exportSchema', () => {
     const legacy = { ...doc.ingredients[0], category: undefined }
     const parsed = exportSchema.parse({ ...doc, ingredients: [legacy] })
     expect(parsed.ingredients[0].category).toBeNull()
+  })
+
+  it('defaults missing focus points to the centre for older exports', () => {
+    const legacy = {
+      ...recipe,
+      coverFocusX: undefined,
+      coverFocusY: undefined,
+      steps: [{ text: 'Simmer', imageId: null, position: 0 }],
+    }
+    const parsed = exportSchema.parse({ ...doc, recipes: [legacy] })
+    expect(parsed.recipes[0]).toMatchObject({
+      coverFocusX: 50,
+      coverFocusY: 50,
+      steps: [{ imageFocusX: 50, imageFocusY: 50 }],
+    })
+  })
+
+  it('rejects a focus point outside 0 to 100', () => {
+    const recipes = [{ ...recipe, coverFocusY: 120 }]
+    expect(firstError({ ...doc, recipes })).toBe('Focus must be between 0 and 100')
   })
 
   it('rejects another version with a clear message', () => {

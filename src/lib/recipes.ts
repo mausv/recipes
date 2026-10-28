@@ -100,6 +100,8 @@ export function listRecipes({
       servings: recipe.servings,
       tags: recipe.tags,
       coverImageId: recipe.coverImageId,
+      coverFocusX: recipe.coverFocusX,
+      coverFocusY: recipe.coverFocusY,
       createdById: recipe.createdById,
       ownerName: user.name,
       kcalPerServing: sql<number>`coalesce(sum(${recipeIngredient.grams} * ${ingredient.kcal} / 100), 0) / ${recipe.servings}`,
@@ -196,9 +198,35 @@ export async function updateRecipe(
   const resolved = resolveGrams(ingredients)
   if (resolved.error !== undefined) return { error: resolved.error }
 
+  const current = db.query.recipe
+    .findFirst({
+      where: eq(recipe.id, id),
+      columns: { coverImageId: true, coverFocusX: true, coverFocusY: true },
+      with: { steps: { columns: { imageId: true, imageFocusX: true, imageFocusY: true } } },
+    })
+    .sync()
+  const keptCover = current?.coverImageId === values.coverImageId ? current : undefined
+  const stepRows = steps.map((step, position) => {
+    const kept = step.imageId ? current?.steps.find((s) => s.imageId === step.imageId) : undefined
+    return {
+      ...step,
+      imageFocusX: step.imageFocusX ?? kept?.imageFocusX ?? 50,
+      imageFocusY: step.imageFocusY ?? kept?.imageFocusY ?? 50,
+      position,
+      recipeId: id,
+    }
+  })
+
   const imageIds = referencedImageIds(values.coverImageId, steps)
   db.transaction((tx) => {
-    tx.update(recipe).set(values).where(eq(recipe.id, id)).run()
+    tx.update(recipe)
+      .set({
+        ...values,
+        coverFocusX: values.coverFocusX ?? keptCover?.coverFocusX ?? 50,
+        coverFocusY: values.coverFocusY ?? keptCover?.coverFocusY ?? 50,
+      })
+      .where(eq(recipe.id, id))
+      .run()
     tx.delete(recipeIngredient).where(eq(recipeIngredient.recipeId, id)).run()
     tx.delete(recipeStep).where(eq(recipeStep.recipeId, id)).run()
     if (resolved.rows.length) {
@@ -206,11 +234,7 @@ export async function updateRecipe(
         .values(resolved.rows.map((row) => ({ ...row, recipeId: id })))
         .run()
     }
-    if (steps.length) {
-      tx.insert(recipeStep)
-        .values(steps.map((step, position) => ({ ...step, position, recipeId: id })))
-        .run()
-    }
+    if (stepRows.length) tx.insert(recipeStep).values(stepRows).run()
     if (imageIds.length) {
       tx.update(image)
         .set({ recipeId: id })
@@ -248,7 +272,14 @@ export async function setCoverImage(recipeId: string, userId: string, imageId: s
   if (!current) return { error: 'Recipe not found' }
 
   db.transaction((tx) => {
-    tx.update(recipe).set({ coverImageId: imageId }).where(eq(recipe.id, recipeId)).run()
+    tx.update(recipe)
+      .set(
+        imageId === current.coverImageId
+          ? { coverImageId: imageId }
+          : { coverImageId: imageId, coverFocusX: 50, coverFocusY: 50 }
+      )
+      .where(eq(recipe.id, recipeId))
+      .run()
     if (imageId) {
       tx.update(image)
         .set({ recipeId })
@@ -292,6 +323,8 @@ export async function copyRecipe(recipeId: string, userId: string) {
         servings: source.servings,
         cookedWeightGrams: source.cookedWeightGrams,
         tags: source.tags,
+        coverFocusX: source.coverFocusX,
+        coverFocusY: source.coverFocusY,
         createdById: userId,
       })
       .returning({ id: recipe.id })
@@ -334,6 +367,8 @@ export async function copyRecipe(recipeId: string, userId: string) {
             recipeId: id,
             text: step.text,
             imageId: copyOf(step.imageId),
+            imageFocusX: step.imageFocusX,
+            imageFocusY: step.imageFocusY,
             position: step.position,
           }))
         )

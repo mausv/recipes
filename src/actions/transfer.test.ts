@@ -49,6 +49,8 @@ function exportDoc(recipeLines: ExportDoc['recipes'][number]['ingredients'] = []
         cookedWeightGrams: null,
         tags: [],
         coverImageId: null,
+        coverFocusX: 50,
+        coverFocusY: 50,
         ingredients: recipeLines,
         steps: [],
         comments: [],

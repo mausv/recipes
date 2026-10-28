@@ -116,6 +116,8 @@ export default async function PlanPage({ searchParams }: PageProps<'/plan'>) {
     title: r.title,
     servings: r.servings,
     coverImageId: r.coverImageId,
+    coverFocusX: r.coverFocusX,
+    coverFocusY: r.coverFocusY,
     kcalPerServing: r.kcalPerServing,
   }))
   const weekHref = (date: string) => `/plan?week=${date}`

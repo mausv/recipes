@@ -128,4 +128,14 @@ export const recipes = {
   dropPhoto: 'or drop one here',
   replacePhoto: 'Replace photo',
   addPhoto: 'Add photo',
+  adjust: 'Adjust',
+  focusTitle: 'Photo focus',
+  focusHint:
+    'Tap or drag to mark what should stay in view when the photo is cropped. Arrow keys work too.',
+  focusPoint: 'Focus point',
+  focusValue: (x: number, y: number) => `${x}% from the left, ${y}% from the top`,
+  focusPreview: 'How it crops',
+  previewWide: 'Wide',
+  previewStandard: '4:3',
+  done: 'Done',
 }

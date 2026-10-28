@@ -201,7 +201,14 @@ describe('getWeek', () => {
         servings: 3,
         createdBy: 'Ana',
         kind: 'recipe',
-        recipe: { id: porridge.id, title: 'Porridge', coverImageId: null, servings: 2 },
+        recipe: {
+          id: porridge.id,
+          title: 'Porridge',
+          coverImageId: null,
+          coverFocusX: 50,
+          coverFocusY: 50,
+          servings: 2,
+        },
       },
     ])
   })

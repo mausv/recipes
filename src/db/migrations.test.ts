@@ -109,3 +109,25 @@ describe('0003_groups on an empty database', () => {
     sqlite.close()
   })
 })
+
+describe('0005_image_focus', () => {
+  it('centres the focus of existing cover and step photos', () => {
+    const file = path.join(dir, 'focus.db')
+    const before = openDatabase(file, migrationsUpTo('0004_ingredient_category'))
+    before.exec(`
+      insert into user (id, name, email) values ('u1', 'Ana', 'ana@example.com');
+      insert into image (id, width, height) values ('img1', 10, 10);
+      insert into recipe (id, title, cover_image_id, created_by_id) values ('r1', 'Toast', 'img1', 'u1');
+      insert into recipe_step (id, recipe_id, text, image_id, position) values ('s1', 'r1', 'Plate', 'img1', 0);
+    `)
+    before.close()
+    const sqlite = openDatabase(file, migrationsFolder)
+    expect(all(sqlite, 'select cover_focus_x, cover_focus_y from recipe')).toEqual([
+      { cover_focus_x: 50, cover_focus_y: 50 },
+    ])
+    expect(all(sqlite, 'select image_focus_x, image_focus_y from recipe_step')).toEqual([
+      { image_focus_x: 50, image_focus_y: 50 },
+    ])
+    sqlite.close()
+  })
+})

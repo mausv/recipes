@@ -23,6 +23,8 @@ export type PdfRecipe = {
   servings: number
   createdBy: { name: string }
   coverImage: PdfImage | null
+  coverFocusX: number
+  coverFocusY: number
   ingredients: PdfLine[]
   steps: { id: string; text: string; image: PdfImage | null }[]
   nutrition: { total: Macros }
@@ -50,7 +52,10 @@ export function recipePdfModel(
     description: recipe.description,
     byline: t.by(recipe.createdBy.name),
     tags: recipe.tags,
-    cover: recipe.coverImage,
+    cover: recipe.coverImage && {
+      ...recipe.coverImage,
+      position: `${recipe.coverFocusX}% ${recipe.coverFocusY}%`,
+    },
     servings: mode === 'scale' ? t.servingsScaled(servings) : t.servingsSplit(servings),
     batchKcal:
       mode === 'scale' ? t.kcalTotal(formatKcal(total.kcal)) : t.kcalBatch(formatKcal(total.kcal)),

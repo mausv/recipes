@@ -75,4 +75,30 @@ describe('recipeSchema', () => {
       'Steps cannot be empty'
     )
   })
+
+  it('accepts focus points from 0 to 100', () => {
+    const steps = [{ text: 'Simmer', imageId: 'step', imageFocusX: 0, imageFocusY: 100 }]
+    const parsed = recipeSchema.parse({ ...porridge, coverFocusX: 25, coverFocusY: 75, steps })
+    expect(parsed).toMatchObject({ coverFocusX: 25, coverFocusY: 75, steps })
+  })
+
+  it('leaves focus points out when omitted', () => {
+    const parsed = recipeSchema.parse(porridge)
+    expect(parsed).not.toHaveProperty('coverFocusX')
+    expect(parsed.steps[0]).not.toHaveProperty('imageFocusX')
+  })
+
+  it('rejects a cover focus outside 0 to 100', () => {
+    expect(firstError({ ...porridge, coverFocusX: -1 })).toBe('Focus must be between 0 and 100')
+    expect(firstError({ ...porridge, coverFocusY: 101 })).toBe('Focus must be between 0 and 100')
+  })
+
+  it('rejects a step focus outside 0 to 100', () => {
+    const steps = [{ text: 'Simmer', imageId: 'step', imageFocusY: 150 }]
+    expect(firstError({ ...porridge, steps })).toBe('Focus must be between 0 and 100')
+  })
+
+  it('rejects a fractional focus', () => {
+    expect(firstError({ ...porridge, coverFocusX: 12.5 })).toBe('Focus must be a whole number')
+  })
 })

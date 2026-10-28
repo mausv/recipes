@@ -36,6 +36,13 @@
       "when": 1792341989559,
       "tag": "0004_ingredient_category",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793219340158,
+      "tag": "0005_image_focus",
+      "breakpoints": true
     }
   ]
 }

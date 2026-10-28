@@ -49,6 +49,7 @@ export default async function RecipePage({ params }: PageProps<'/recipes/[id]'>)
             unoptimized
             preload
             className="-mx-4 -mt-6 aspect-4/3 w-[calc(100%+2rem)] max-w-none bg-secondary object-cover md:mx-0 md:mt-0 md:aspect-auto md:max-h-[480px] md:w-full md:rounded-lg"
+            style={{ objectPosition: `${recipe.coverFocusX}% ${recipe.coverFocusY}%` }}
           />
         )}
 

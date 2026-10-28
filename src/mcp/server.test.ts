@@ -289,6 +289,55 @@ describe('mcp server', () => {
     await call('delete_recipe', { id })
   })
 
+  it('keeps the photo focus points when update_recipe runs', async () => {
+    const [cover, photo] = db
+      .insert(schema.image)
+      .values([
+        { recipeId: null, width: 1, height: 1 },
+        { recipeId: null, width: 1, height: 1 },
+      ])
+      .returning()
+      .all()
+    const id = await create('create_recipe', {
+      title: 'Toast',
+      servings: 1,
+      coverImageId: cover.id,
+      ingredients: [],
+      steps: [{ text: 'Plate', imageId: photo.id }],
+    })
+    db.update(schema.recipe)
+      .set({ coverFocusX: 10, coverFocusY: 20 })
+      .where(eq(schema.recipe.id, id))
+      .run()
+    db.update(schema.recipeStep)
+      .set({ imageFocusX: 30, imageFocusY: 40 })
+      .where(eq(schema.recipeStep.recipeId, id))
+      .run()
+    await call('update_recipe', {
+      id,
+      title: 'Toast',
+      servings: 1,
+      ingredients: [],
+      steps: [{ text: 'Plate on a board', imageId: photo.id }],
+    })
+    expect(db.select().from(schema.recipe).where(eq(schema.recipe.id, id)).get()).toMatchObject({
+      coverFocusX: 10,
+      coverFocusY: 20,
+    })
+    expect(
+      db.select().from(schema.recipeStep).where(eq(schema.recipeStep.recipeId, id)).all()
+    ).toMatchObject([{ text: 'Plate on a board', imageFocusX: 30, imageFocusY: 40 }])
+    await call('delete_recipe', { id })
+  })
+
+  it('does not take focus points in recipe tools', async () => {
+    const { tools } = await client.listTools()
+    const schemas = JSON.stringify(
+      tools.filter((t) => t.name.endsWith('_recipe')).map((t) => t.inputSchema)
+    )
+    expect(schemas).not.toMatch(/Focus/)
+  })
+
   it('returns domain errors as tool errors', async () => {
     expect(await callError('get_recipe', { id: 'missing' })).toEqual([
       { type: 'text', text: 'Recipe not found' },

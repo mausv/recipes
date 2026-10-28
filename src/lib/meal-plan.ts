@@ -75,7 +75,14 @@ export type PlanEntry = EntryBase &
   (
     | {
         kind: 'recipe'
-        recipe: { id: string; title: string; coverImageId: string | null; servings: number }
+        recipe: {
+          id: string
+          title: string
+          coverImageId: string | null
+          coverFocusX: number
+          coverFocusY: number
+          servings: number
+        }
       }
     | { kind: 'note'; note: string }
     | { kind: 'hidden' }
@@ -95,6 +102,8 @@ function entriesBetween(groupId: string, userId: string, from: string, to: strin
         id: recipe.id,
         title: recipe.title,
         coverImageId: recipe.coverImageId,
+        coverFocusX: recipe.coverFocusX,
+        coverFocusY: recipe.coverFocusY,
         servings: recipe.servings,
       },
     })

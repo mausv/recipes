@@ -338,6 +338,8 @@ export const recipe = sqliteTable('recipe', {
   coverImageId: text('cover_image_id').references((): AnySQLiteColumn => image.id, {
     onDelete: 'set null',
   }),
+  coverFocusX: integer('cover_focus_x').default(50).notNull(),
+  coverFocusY: integer('cover_focus_y').default(50).notNull(),
   createdById: text('created_by_id')
     .notNull()
     .references(() => user.id),
@@ -373,6 +375,8 @@ export const recipeStep = sqliteTable(
       .references(() => recipe.id, { onDelete: 'cascade' }),
     text: text('text').notNull(),
     imageId: text('image_id').references(() => image.id, { onDelete: 'set null' }),
+    imageFocusX: integer('image_focus_x').default(50).notNull(),
+    imageFocusY: integer('image_focus_y').default(50).notNull(),
     position: integer('position').notNull(),
   },
   (table) => [index('recipe_step_recipe_idx').on(table.recipeId)]

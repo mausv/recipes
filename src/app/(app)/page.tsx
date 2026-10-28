@@ -160,6 +160,7 @@ export default async function RecipesPage({ searchParams }: PageProps<'/'>) {
                       unoptimized
                       sizes="(min-width: 1024px) 330px, (min-width: 640px) 50vw, 100vw"
                       className="object-cover"
+                      style={{ objectPosition: `${r.coverFocusX}% ${r.coverFocusY}%` }}
                     />
                   ) : (
                     <span

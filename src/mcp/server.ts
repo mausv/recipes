@@ -82,7 +82,7 @@ const groupId = id
   .optional()
   .describe('Group id from list_groups; optional when the user has one group')
 
-const recipeInput = recipeSchema.extend({
+const recipeInput = recipeSchema.omit({ coverFocusX: true, coverFocusY: true }).extend({
   description: recipeSchema.shape.description.default(null),
   cookedWeightGrams: recipeSchema.shape.cookedWeightGrams.default(null),
   tags: recipeSchema.shape.tags.default([]),
@@ -94,7 +94,9 @@ const recipeInput = recipeSchema.extend({
     })
   ),
   steps: z.array(
-    recipeStepSchema.extend({ imageId: recipeStepSchema.shape.imageId.default(null) })
+    recipeStepSchema
+      .omit({ imageFocusX: true, imageFocusY: true })
+      .extend({ imageId: recipeStepSchema.shape.imageId.default(null) })
   ),
 })
 

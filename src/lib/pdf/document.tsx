@@ -167,7 +167,10 @@ function RecipeDocument({ model, images }: { model: RecipePdfModel; images: Imag
             src={{ data: cover, format: 'jpg' }}
             style={[
               s.cover,
-              { height: Math.min((CONTENT_WIDTH * model.cover.height) / model.cover.width, 300) },
+              {
+                height: Math.min((CONTENT_WIDTH * model.cover.height) / model.cover.width, 300),
+                objectPosition: model.cover.position,
+              },
             ]}
           />
         )}

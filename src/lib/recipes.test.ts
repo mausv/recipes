@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import { asc, eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
+import type { RecipeData } from '@/lib/validation/recipe'
 import { pngBuffer, setupTestDb } from '@/test/db'
 
 const { db, schema, insertUser, insertIngredient, insertGroup, insertRecipe, shareInto } =
@@ -328,7 +329,7 @@ describe('createRecipe', () => {
   })
 })
 
-const emptyRecipe = {
+const emptyRecipe: RecipeData = {
   title: 'Toast',
   description: null,
   servings: 1,
@@ -338,6 +339,123 @@ const emptyRecipe = {
   ingredients: [],
   steps: [],
 }
+
+describe('image focus', () => {
+  function newImage() {
+    return db.insert(schema.image).values({ width: 800, height: 600 }).returning().get().id
+  }
+
+  function focusOf(id: string) {
+    const recipe = db
+      .select({ x: schema.recipe.coverFocusX, y: schema.recipe.coverFocusY })
+      .from(schema.recipe)
+      .where(eq(schema.recipe.id, id))
+      .get()
+    const steps = db
+      .select({ x: schema.recipeStep.imageFocusX, y: schema.recipeStep.imageFocusY })
+      .from(schema.recipeStep)
+      .where(eq(schema.recipeStep.recipeId, id))
+      .orderBy(asc(schema.recipeStep.position))
+      .all()
+    return { cover: recipe, steps }
+  }
+
+  function created(values: Partial<RecipeData> = {}) {
+    const result = createRecipe(user.id, { ...emptyRecipe, ...values })
+    if (result.error !== undefined) throw new Error(result.error)
+    return result.id
+  }
+
+  it('saves the cover and step focus points on create', () => {
+    const id = created({
+      coverImageId: newImage(),
+      coverFocusX: 10,
+      coverFocusY: 90,
+      steps: [{ text: 'Plate', imageId: newImage(), imageFocusX: 25, imageFocusY: 75 }],
+    })
+    expect(focusOf(id)).toEqual({ cover: { x: 10, y: 90 }, steps: [{ x: 25, y: 75 }] })
+  })
+
+  it('centres the focus points when create omits them', () => {
+    const id = created({
+      coverImageId: newImage(),
+      steps: [{ text: 'Plate', imageId: newImage() }],
+    })
+    expect(focusOf(id)).toEqual({ cover: { x: 50, y: 50 }, steps: [{ x: 50, y: 50 }] })
+  })
+
+  it('saves new focus points on update', async () => {
+    const cover = newImage()
+    const photo = newImage()
+    const id = created({ coverImageId: cover, steps: [{ text: 'Plate', imageId: photo }] })
+    await updateRecipe(id, user.id, {
+      ...emptyRecipe,
+      coverImageId: cover,
+      coverFocusX: 0,
+      coverFocusY: 100,
+      steps: [{ text: 'Plate', imageId: photo, imageFocusX: 100, imageFocusY: 0 }],
+    })
+    expect(focusOf(id)).toEqual({ cover: { x: 0, y: 100 }, steps: [{ x: 100, y: 0 }] })
+  })
+
+  it('keeps the focus points of unchanged images when update omits them', async () => {
+    const cover = newImage()
+    const first = newImage()
+    const second = newImage()
+    const id = created({
+      coverImageId: cover,
+      coverFocusX: 10,
+      coverFocusY: 20,
+      steps: [
+        { text: 'Mix', imageId: first, imageFocusX: 30, imageFocusY: 40 },
+        { text: 'Bake', imageId: second, imageFocusX: 60, imageFocusY: 70 },
+      ],
+    })
+    await updateRecipe(id, user.id, {
+      ...emptyRecipe,
+      coverImageId: cover,
+      steps: [
+        { text: 'Bake first', imageId: second },
+        { text: 'Mix after', imageId: first },
+      ],
+    })
+    expect(focusOf(id)).toEqual({
+      cover: { x: 10, y: 20 },
+      steps: [
+        { x: 60, y: 70 },
+        { x: 30, y: 40 },
+      ],
+    })
+  })
+
+  it('centres the focus points of replaced images when update omits them', async () => {
+    const id = created({
+      coverImageId: newImage(),
+      coverFocusX: 10,
+      coverFocusY: 20,
+      steps: [{ text: 'Plate', imageId: newImage(), imageFocusX: 30, imageFocusY: 40 }],
+    })
+    await updateRecipe(id, user.id, {
+      ...emptyRecipe,
+      coverImageId: newImage(),
+      steps: [{ text: 'Plate', imageId: newImage() }],
+    })
+    expect(focusOf(id)).toEqual({ cover: { x: 50, y: 50 }, steps: [{ x: 50, y: 50 }] })
+  })
+
+  it('centres the cover focus when setCoverImage swaps the photo', async () => {
+    const id = created({ coverImageId: newImage(), coverFocusX: 10, coverFocusY: 20 })
+    await setCoverImage(id, user.id, newImage())
+    expect(focusOf(id).cover).toEqual({ x: 50, y: 50 })
+  })
+
+  it('keeps the cover focus when setCoverImage sets the same photo', async () => {
+    const cover = newImage()
+    const id = created({ coverImageId: cover, coverFocusX: 10, coverFocusY: 20 })
+    await setCoverImage(id, user.id, cover)
+    expect(focusOf(id).cover).toEqual({ x: 10, y: 20 })
+  })
+})
 
 describe('owner-only changes', () => {
   const owner = insertUser()
@@ -412,6 +530,8 @@ describe('copyRecipe', () => {
       servings: 4,
       tags: ['baking'],
       coverImageId: cover.id,
+      coverFocusX: 10,
+      coverFocusY: 20,
     })
     db.update(schema.image).set({ recipeId: recipe.id }).where(eq(schema.image.id, cover.id)).run()
     db.update(schema.image)
@@ -442,7 +562,14 @@ describe('copyRecipe', () => {
     db.insert(schema.recipeStep)
       .values([
         { recipeId: recipe.id, text: 'Mix', position: 0 },
-        { recipeId: recipe.id, text: 'Bake', imageId: stepImage.id, position: 1 },
+        {
+          recipeId: recipe.id,
+          text: 'Bake',
+          imageId: stepImage.id,
+          imageFocusX: 30,
+          imageFocusY: 40,
+          position: 1,
+        },
       ])
       .run()
     shareInto(recipe.id, kitchen.id, owner.id)
@@ -535,6 +662,22 @@ describe('copyRecipe', () => {
       .all()[1]
     expect(step.imageId).not.toBe(stepImage.id)
     expect(fs.existsSync(imagePath(step.imageId ?? ''))).toBe(true)
+  })
+
+  it('copies the cover and step focus points', async () => {
+    const { recipe } = await sharedRecipeWithImages()
+    const copy = await copied(recipe.id)
+    expect(copy).toMatchObject({ coverFocusX: 10, coverFocusY: 20 })
+    const steps = db
+      .select({ x: schema.recipeStep.imageFocusX, y: schema.recipeStep.imageFocusY })
+      .from(schema.recipeStep)
+      .where(eq(schema.recipeStep.recipeId, copy.id))
+      .orderBy(asc(schema.recipeStep.position))
+      .all()
+    expect(steps).toEqual([
+      { x: 50, y: 50 },
+      { x: 30, y: 40 },
+    ])
   })
 
   it('keeps the original images when the copy is deleted', async () => {

@@ -63,6 +63,8 @@ async function seed() {
       cookedWeightGrams: 400,
       tags: ['breakfast'],
       coverImageId: cover.id,
+      coverFocusX: 30,
+      coverFocusY: 70,
       createdById: ana.id,
     })
     .returning()
@@ -98,7 +100,14 @@ async function seed() {
     .run()
   db.insert(schema.recipeStep)
     .values([
-      { recipeId: porridge.id, text: 'Simmer', imageId: stepImage.id, position: 0 },
+      {
+        recipeId: porridge.id,
+        text: 'Simmer',
+        imageId: stepImage.id,
+        imageFocusX: 20,
+        imageFocusY: 90,
+        position: 0,
+      },
       { recipeId: porridge.id, text: 'Serve', imageId: null, position: 1 },
     ])
     .run()
@@ -150,6 +159,8 @@ function recipeEntry(overrides: Partial<RecipeEntry> = {}): RecipeEntry {
     cookedWeightGrams: null,
     tags: [],
     coverImageId: null,
+    coverFocusX: 50,
+    coverFocusY: 50,
     ingredients: [],
     steps: [],
     comments: [],
@@ -257,6 +268,8 @@ describe('buildExport', () => {
       cookedWeightGrams: 400,
       tags: ['breakfast'],
       coverImageId: cover.id,
+      coverFocusX: 30,
+      coverFocusY: 70,
     })
   })
 
@@ -276,12 +289,12 @@ describe('buildExport', () => {
     ])
   })
 
-  it('exports steps in position order with their image ids', async () => {
+  it('exports steps in position order with their image ids and focus points', async () => {
     const { stepImage } = await seed()
     const [exportedPorridge] = (await buildExport({ userId: ana.id, includeImages: false })).recipes
     expect(exportedPorridge.steps).toEqual([
-      { text: 'Simmer', imageId: stepImage.id, position: 0 },
-      { text: 'Serve', imageId: null, position: 1 },
+      { text: 'Simmer', imageId: stepImage.id, imageFocusX: 20, imageFocusY: 90, position: 0 },
+      { text: 'Serve', imageId: null, imageFocusX: 50, imageFocusY: 50, position: 1 },
     ])
   })
 
@@ -409,6 +422,44 @@ describe('applyImport round trip', () => {
     db.insert(schema.recipe).values({ title: 'Leftover', createdById: ana.id }).run()
     await applyImport(doc, { userId: ana.id, mode: 'replace' })
     expect(await exported({ userId: ana.id, includeImages: true })).toEqual(before)
+  })
+
+  it('restores the focus points', async () => {
+    const { porridge } = await seed()
+    const doc = await buildExport({ userId: ana.id, includeImages: true })
+    wipe()
+    await applyImport(JSON.parse(JSON.stringify(doc)), { userId: ana.id, mode: 'merge' })
+    expect(allRecipes().find((r) => r.id === porridge.id)).toMatchObject({
+      coverFocusX: 30,
+      coverFocusY: 70,
+    })
+    expect(
+      db
+        .select({ x: schema.recipeStep.imageFocusX, y: schema.recipeStep.imageFocusY })
+        .from(schema.recipeStep)
+        .orderBy(schema.recipeStep.position)
+        .all()
+    ).toEqual([
+      { x: 20, y: 90 },
+      { x: 50, y: 50 },
+    ])
+  })
+
+  it('centres the focus points of an export made before they existed', async () => {
+    const image = await webpImage()
+    const legacy = {
+      ...recipeEntry({ coverImageId: image.id }),
+      coverFocusX: undefined,
+      coverFocusY: undefined,
+      steps: [{ text: 'Flip', imageId: image.id, position: 0 }],
+    }
+    const json = JSON.stringify({ ...docWith({ images: [image] }), recipes: [legacy] })
+    const result = await importExport(JSON.parse(json), { userId: ana.id, mode: 'merge' })
+    expect(result).not.toHaveProperty('error')
+    expect(allRecipes()[0]).toMatchObject({ coverFocusX: 50, coverFocusY: 50 })
+    expect(db.select().from(schema.recipeStep).all()).toMatchObject([
+      { imageFocusX: 50, imageFocusY: 50 },
+    ])
   })
 
   it('restores the image files byte for byte', async () => {
@@ -716,7 +767,7 @@ describe('applyImport merge', () => {
     const missing = crypto.randomUUID()
     const recipe = recipeEntry({
       coverImageId: missing,
-      steps: [{ text: 'Flip', imageId: missing, position: 0 }],
+      steps: [{ text: 'Flip', imageId: missing, imageFocusX: 50, imageFocusY: 50, position: 0 }],
     })
     await applyImport(docWith({ recipes: [recipe] }), { userId: ana.id, mode: 'merge' })
     expect(allRecipes()[0].coverImageId).toBeNull()

@@ -21,13 +21,20 @@ export default async function EditRecipePage({ params }: PageProps<'/recipes/[id
         cookedWeightGrams: recipe.cookedWeightGrams,
         tags: recipe.tags,
         coverImageId: recipe.coverImageId,
+        coverFocusX: recipe.coverFocusX,
+        coverFocusY: recipe.coverFocusY,
         ingredients: recipe.ingredients.map((l) => ({
           ingredientId: l.ingredientId,
           quantity: l.quantity,
           unit: l.unit,
           groupName: l.groupName,
         })),
-        steps: recipe.steps.map((s) => ({ text: s.text, imageId: s.imageId })),
+        steps: recipe.steps.map((s) => ({
+          text: s.text,
+          imageId: s.imageId,
+          imageFocusX: s.imageFocusX,
+          imageFocusY: s.imageFocusY,
+        })),
       }}
     />
   )

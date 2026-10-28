@@ -130,4 +130,14 @@ export const recipes: typeof en = {
   dropPhoto: 'o suéltala aquí',
   replacePhoto: 'Reemplazar foto',
   addPhoto: 'Agregar foto',
+  adjust: 'Ajustar',
+  focusTitle: 'Enfoque de la foto',
+  focusHint:
+    'Toca o arrastra para marcar lo que debe quedar a la vista cuando se recorte la foto. También puedes usar las flechas.',
+  focusPoint: 'Punto de enfoque',
+  focusValue: (x, y) => `${x}% desde la izquierda, ${y}% desde arriba`,
+  focusPreview: 'Cómo se recorta',
+  previewWide: 'Panorámica',
+  previewStandard: '4:3',
+  done: 'Listo',
 }

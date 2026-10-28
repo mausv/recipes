@@ -1,9 +1,10 @@
 import { z } from 'zod'
-import { recipeSchema } from './recipe'
+import { focusSchema, recipeSchema } from './recipe'
 
 const id = z.string().min(1)
 const amount = z.number().min(0)
 const imageId = z.uuid('Invalid image id')
+const focus = focusSchema.default(50)
 
 const exportIngredientSchema = z.object({
   id,
@@ -29,6 +30,8 @@ const exportRecipeSchema = z.object({
   cookedWeightGrams: z.number().positive().nullable(),
   tags: recipeSchema.shape.tags,
   coverImageId: imageId.nullable(),
+  coverFocusX: focus,
+  coverFocusY: focus,
   ingredients: z.array(
     z.object({
       ingredientId: id,
@@ -40,7 +43,13 @@ const exportRecipeSchema = z.object({
     })
   ),
   steps: z.array(
-    z.object({ text: z.string().min(1), imageId: imageId.nullable(), position: z.int().min(0) })
+    z.object({
+      text: z.string().min(1),
+      imageId: imageId.nullable(),
+      imageFocusX: focus,
+      imageFocusY: focus,
+      position: z.int().min(0),
+    })
   ),
   comments: z.array(
     z.object({ authorName: z.string(), text: z.string().min(1), createdAt: z.iso.datetime() })

@@ -19,6 +19,8 @@ const recipe: PdfRecipe = {
   servings: 2,
   createdBy: { name: 'Ana' },
   coverImage: { id: 'cover', width: 1600, height: 1200 },
+  coverFocusX: 30,
+  coverFocusY: 80,
   ingredients: [
     line('oats', 80, 'g', 80),
     line('milk', 1.5, 'cup', 360, null, 'Lala'),
@@ -108,7 +110,7 @@ describe('recipePdfModel', () => {
       { id: 's1', number: 1, text: 'Simmer the oats.', image: null },
       { id: 's2', number: 2, text: 'Top and serve.', image: recipe.steps[1].image },
     ])
-    expect(model.cover).toBe(recipe.coverImage)
+    expect(model.cover).toEqual({ ...recipe.coverImage, position: '30% 80%' })
     expect(model.title).toBe('Porridge')
     expect(model.description).toBe('Creamy oats')
     expect(model.tags).toEqual(['breakfast', 'quick'])
@@ -158,6 +160,14 @@ describe('recipePdfModel', () => {
     const split = recipePdfModel(recipe, { servings: 4, mode: 'split', locale: 'es' })
     expect(split.servings).toBe('La tanda completa, dividida en 4 porciones')
     expect(split.batchKcal).toBe('800 kcal en la tanda')
+  })
+
+  it('has no cover without a cover image', () => {
+    const model = recipePdfModel(
+      { ...recipe, coverImage: null },
+      { servings: 2, mode: 'scale', locale: 'en' }
+    )
+    expect(model.cover).toBeNull()
   })
 
   it('handles a recipe with no ingredients or steps', () => {
